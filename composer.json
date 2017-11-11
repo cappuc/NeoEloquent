@@ -28,17 +28,18 @@
         "phpunit/phpunit": "~6.0",
         "mockery/mockery": "1.0"
     },
-    "repositories": [
-    ],
+    "scripts": {
+        "test": "phpunit"
+    },
     "autoload": {
         "psr-4": {
             "Vinelab\\NeoEloquent\\": "src"
         }
     },
     "autoload-dev": {
-        "classmap": [
-            "tests/TestCase.php"
-        ]
+        "psr-4": {
+            "Vinelab\\NeoEloquent\\Tests\\": "tests"
+        }
     },
     "minimum-stability": "stable",
     "extra": {

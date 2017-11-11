@@ -1,18 +1,22 @@
-<?php namespace Vinelab\NeoEloquent\Tests\Functional\Relations\BelongsTo;
+<?php
+
+namespace Vinelab\NeoEloquent\Tests\Functional\Relations\BelongsTo;
 
 use Mockery as M;
-use Vinelab\NeoEloquent\Tests\TestCase;
 use Vinelab\NeoEloquent\Eloquent\Model;
+use Vinelab\NeoEloquent\Tests\TestCase;
 
-class User extends Model {
-
+class User extends Model
+{
     protected $label = 'Individual';
+
     protected $fillable = ['name', 'email'];
 }
 
-class Location extends Model {
-
+class Location extends Model
+{
     protected $label = 'Location';
+
     protected $fillable = ['lat', 'long'];
 
     public function user()
@@ -21,17 +25,21 @@ class Location extends Model {
     }
 }
 
-class BelongsToRelationTest extends TestCase {
-
+class BelongsToRelationTest extends TestCase
+{
     public function tearDown()
     {
         M::close();
 
         $users = User::all();
-        $users->each(function($u) { $u->delete(); });
+        $users->each(function ($u) {
+            $u->delete();
+        });
 
         $locs = Location::all();
-        $locs->each(function($l) { $l->delete(); });
+        $locs->each(function ($l) {
+            $l->delete();
+        });
 
         parent::tearDown();
     }
@@ -49,8 +57,13 @@ class BelongsToRelationTest extends TestCase {
 
     public function testDynamicLoadingBelongsTo()
     {
-        $location = Location::create(['lat' => 89765, 'long' => -876521234, 'country' => 'The Netherlands', 'city' => 'Amsterdam']);
-        $user = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
+        $location = Location::create([
+            'lat'     => 89765,
+            'long'    => -876521234,
+            'country' => 'The Netherlands',
+            'city'    => 'Amsterdam'
+        ]);
+        $user     = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
         $relation = $location->user()->associate($user);
 
         $this->assertTrue($relation->save());
@@ -60,8 +73,13 @@ class BelongsToRelationTest extends TestCase {
 
     public function testDynamicLoadingBelongsToFromFoundRecord()
     {
-        $location = Location::create(['lat' => 89765, 'long' => -876521234, 'country' => 'The Netherlands', 'city' => 'Amsterdam']);
-        $user = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
+        $location = Location::create([
+            'lat'     => 89765,
+            'long'    => -876521234,
+            'country' => 'The Netherlands',
+            'city'    => 'Amsterdam'
+        ]);
+        $user     = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
         $relation = $location->user()->associate($user);
 
         $this->assertTrue($relation->save());
@@ -74,13 +92,18 @@ class BelongsToRelationTest extends TestCase {
 
     public function testEagerLoadingBelongsTo()
     {
-        $location = Location::create(['lat' => 89765, 'long' => -876521234, 'country' => 'The Netherlands', 'city' => 'Amsterdam']);
-        $user = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
+        $location = Location::create([
+            'lat'     => 89765,
+            'long'    => -876521234,
+            'country' => 'The Netherlands',
+            'city'    => 'Amsterdam'
+        ]);
+        $user     = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
         $relation = $location->user()->associate($user);
 
         $this->assertTrue($relation->save());
 
-        $found = Location::with('user')->find($location->id);
+        $found     = Location::with('user')->find($location->id);
         $relations = $found->getRelations();
 
         $this->assertArrayHasKey('user', $relations);
@@ -90,8 +113,13 @@ class BelongsToRelationTest extends TestCase {
 
     public function testAssociatingBelongingModel()
     {
-        $location = Location::create(['lat' => 89765, 'long' => -876521234, 'country' => 'The Netherlands', 'city' => 'Amsterdam']);
-        $user = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
+        $location = Location::create([
+            'lat'     => 89765,
+            'long'    => -876521234,
+            'country' => 'The Netherlands',
+            'city'    => 'Amsterdam'
+        ]);
+        $user     = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
         $relation = $location->user()->associate($user);
 
         $saved = $relation->save();
@@ -114,10 +142,15 @@ class BelongsToRelationTest extends TestCase {
 
     public function testRetrievingAssociationFromParentModel()
     {
-        $location = Location::create(['lat' => 52.3735291, 'long' => 4.886257, 'country' => 'The Netherlands', 'city' => 'Amsterdam']);
-        $user = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
+        $location = Location::create([
+            'lat'     => 52.3735291,
+            'long'    => 4.886257,
+            'country' => 'The Netherlands',
+            'city'    => 'Amsterdam'
+        ]);
+        $user     = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
 
-        $relation = $location->user()->associate($user);
+        $relation        = $location->user()->associate($user);
         $relation->since = 1966;
         $this->assertTrue($relation->save());
 
@@ -132,13 +165,13 @@ class BelongsToRelationTest extends TestCase {
     public function testSavingMultipleAssociationsKeepsOnlyTheLastOne()
     {
         $location = Location::create(['lat' => 52.3735291, 'long' => 4.886257, 'country' => 'The Netherlands']);
-        $van = User::create(['name' => 'Van Gogh', 'alias' => 'vangogh']);
+        $van      = User::create(['name' => 'Van Gogh', 'alias' => 'vangogh']);
 
-        $relation = $location->user()->associate($van);
+        $relation        = $location->user()->associate($van);
         $relation->since = 1890;
         $this->assertTrue($relation->save());
 
-        $jan = User::create(['name' => 'Jan Steen', 'alias' => 'jansteen']);
+        $jan      = User::create(['name' => 'Jan Steen', 'alias' => 'jansteen']);
         $cheating = $location->user()->associate($jan);
         $this->assertTrue($cheating->save());
 
@@ -152,10 +185,15 @@ class BelongsToRelationTest extends TestCase {
 
     public function testFindingEdgeWithNoSpecifiedModel()
     {
-        $location = Location::create(['lat' => 52.3735291, 'long' => 4.886257, 'country' => 'The Netherlands', 'city' => 'Amsterdam']);
-        $user = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
+        $location = Location::create([
+            'lat'     => 52.3735291,
+            'long'    => 4.886257,
+            'country' => 'The Netherlands',
+            'city'    => 'Amsterdam'
+        ]);
+        $user     = User::create(['name' => 'Daughter', 'alias' => 'daughter']);
 
-        $relation = $location->user()->associate($user);
+        $relation        = $location->user()->associate($user);
         $relation->since = 1966;
         $this->assertTrue($relation->save());
 
@@ -166,5 +204,4 @@ class BelongsToRelationTest extends TestCase {
         $this->assertEquals($relation->toArray(), $retrieved->toArray());
         $this->assertTrue($relation->delete());
     }
-
 }

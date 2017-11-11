@@ -1,11 +1,13 @@
-<?php namespace Vinelab\NeoEloquent\Tests\Functional;
+<?php
+
+namespace Vinelab\NeoEloquent\Tests\Functional;
 
 use Mockery as M;
-use Vinelab\NeoEloquent\Tests\TestCase;
 use Vinelab\NeoEloquent\Eloquent\Model;
+use Vinelab\NeoEloquent\Tests\TestCase;
 
-class OrdersAndLimitsTest extends TestCase {
-
+class OrdersAndLimitsTest extends TestCase
+{
     public function setUp()
     {
         parent::setUp();
@@ -27,7 +29,6 @@ class OrdersAndLimitsTest extends TestCase {
         $c1 = Click::create(['num' => 1]);
         $c2 = Click::create(['num' => 2]);
         $c3 = Click::create(['num' => 3]);
-
 
         $clicks = Click::orderBy('num', 'desc')->get();
 
@@ -62,8 +63,8 @@ class OrdersAndLimitsTest extends TestCase {
 
 }
 
-class Click extends Model {
-
+class Click extends Model
+{
     protected $label = 'Click';
 
     protected $fillable = ['num'];

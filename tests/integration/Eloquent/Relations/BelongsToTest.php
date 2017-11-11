@@ -1,4 +1,6 @@
-<?php namespace Vinelab\NeoEloquent\Tests\Eloquent\Relations;
+<?php
+
+namespace Vinelab\NeoEloquent\Tests\Integration\Eloquent\Relations;
 
 use Mockery as M;
 use Vinelab\NeoEloquent\Eloquent\Model;
@@ -6,8 +8,8 @@ use Vinelab\NeoEloquent\Tests\TestCase;
 use Illuminate\Database\Eloquent\Collection;
 use Vinelab\NeoEloquent\Eloquent\Relations\BelongsTo;
 
-class BelongsToTest extends TestCase  {
-
+class BelongsToTest extends TestCase
+{
     public function tearDown()
     {
         M::close();
@@ -33,17 +35,17 @@ class BelongsToTest extends TestCase  {
     public function testUpdateMethodRetrievesModelAndUpdates()
     {
         $relation = $this->getRelation();
-        $mock = M::mock('Vinelab\NeoEloquent\Eloquent\Model');
-        $mock->shouldReceive('fill')->once()->with(array('attributes'))->andReturn($mock);
+        $mock     = M::mock('Vinelab\NeoEloquent\Eloquent\Model');
+        $mock->shouldReceive('fill')->once()->with(['attributes'])->andReturn($mock);
         $mock->shouldReceive('save')->once()->andReturn(true);
         $relation->getQuery()->shouldReceive('first')->once()->andReturn($mock);
 
-        $this->assertTrue($relation->update(array('attributes')));
+        $this->assertTrue($relation->update(['attributes']));
     }
 
     public function testEagerConstraintsAreProperlyAdded()
     {
-        $models = [new Stub(['id' => 1]), new Stub(['id' => 2]), new Stub(['id' => 3])];
+        $models   = [new Stub(['id' => 1]), new Stub(['id' => 2]), new Stub(['id' => 3])];
         $relation = $this->getEagerRelation($models);
 
         $this->assertInstanceOf('Vinelab\NeoEloquent\Eloquent\Relations\BelongsTo', $relation);
@@ -52,11 +54,11 @@ class BelongsToTest extends TestCase  {
     public function testRelationIsProperlyInitialized()
     {
         $relation = $this->getRelation();
-        $model = M::mock('Vinelab\NeoEloquent\Eloquent\Model');
+        $model    = M::mock('Vinelab\NeoEloquent\Eloquent\Model');
         $model->shouldReceive('setRelation')->once()->with('foo', null);
-        $models = $relation->initRelation(array($model), 'foo');
+        $models = $relation->initRelation([$model], 'foo');
 
-        $this->assertEquals(array($model), $models);
+        $this->assertEquals([$model], $models);
     }
 
     public function testModelsAreProperlyMatchedToParents()
@@ -64,15 +66,15 @@ class BelongsToTest extends TestCase  {
         $this->markTestIncomplete('We should be testing mutations');
 
         $relation = $this->getRelation();
-        $result1 = M::mock('stdClass');
+        $result1  = M::mock('stdClass');
         $result1->shouldReceive('getAttribute')->with('id')->andReturn(1);
         $result2 = M::mock('stdClass');
         $result2->shouldReceive('getAttribute')->with('id')->andReturn(2);
-        $model1 = new Stub;
+        $model1              = new Stub();
         $model1->foreign_key = 1;
-        $model2 = new Stub;
+        $model2              = new Stub();
         $model2->foreign_key = 2;
-        $models = $relation->match(array($model1, $model2), new Collection(array($result1, $result2)), 'foo');
+        $models              = $relation->match([$model1, $model2], new Collection([$result1, $result2]), 'foo');
 
         $this->assertEquals(1, $models[0]->foo->getAttribute('id'));
         $this->assertEquals(2, $models[1]->foo->getAttribute('id'));
@@ -87,7 +89,7 @@ class BelongsToTest extends TestCase  {
     {
 
         $query = M::mock('Vinelab\NeoEloquent\Query\Builder');
-        $query ->shouldReceive('modelAsNode')->with(array('Stub'))->andReturn('parent');
+        $query->shouldReceive('modelAsNode')->with(['Stub'])->andReturn('parent');
 
         $builder = M::mock('Vinelab\NeoEloquent\Eloquent\Builder');
         $builder->shouldReceive('getQuery')->times(4)->andReturn($query);
@@ -98,7 +100,7 @@ class BelongsToTest extends TestCase  {
         $related->shouldReceive('getKeyName')->andReturn('id');
         $related->shouldReceive('getTable')->andReturn('relation');
 
-        $id = 19;
+        $id     = 19;
         $parent = new Stub(['id' => $id]);
 
         $builder->shouldReceive('getModel')->once()->andReturn($related);
@@ -108,12 +110,14 @@ class BelongsToTest extends TestCase  {
         $builder->shouldReceive('where')->once()->with('id', '=', $id);
 
         $builder->shouldReceive('matchIn')->twice()
-            ->with($parent, $related, 'relation', 'RELATIONSHIP', 'id', $id);
+                ->with($parent, $related, 'relation', 'RELATIONSHIP', 'id', $id);
 
         $relation = new belongsTo($builder, $parent, 'RELATIONSHIP', 'id', 'relation');
 
         $builder->shouldReceive('whereIn')->once()
-            ->with('id', array_map(function($model){ return $model->id; }, $models));
+                ->with('id', array_map(function ($model) {
+                    return $model->id;
+                }, $models));
 
         $relation->addEagerConstraints($models);
 
@@ -123,7 +127,7 @@ class BelongsToTest extends TestCase  {
     protected function getRelation($parent = null)
     {
         $query = M::mock('Vinelab\NeoEloquent\Query\Builder');
-        $query ->shouldReceive('modelAsNode')->with(array('Stub'))->andReturn('parent');
+        $query->shouldReceive('modelAsNode')->with(['Stub'])->andReturn('parent');
 
         $builder = M::mock('Vinelab\NeoEloquent\Eloquent\Builder');
         $builder->shouldReceive('getQuery')->twice()->andReturn($query);
@@ -135,21 +139,22 @@ class BelongsToTest extends TestCase  {
 
         $builder->shouldReceive('getModel')->once()->andReturn($related);
 
-        $id = 19;
+        $id     = 19;
         $parent = new Stub(['id' => $id]);
 
         $builder->shouldReceive('matchIn')->once()
-            ->with($parent, $related, 'relation', 'RELATIONSHIP', 'id', $id);
+                ->with($parent, $related, 'relation', 'RELATIONSHIP', 'id', $id);
 
         $builder->shouldReceive('where')->once()
-            ->with('id', '=', $id);
+                ->with('id', '=', $id);
 
         return new belongsTo($builder, $parent, 'RELATIONSHIP', 'id', 'relation');
     }
 
 }
 
-class Stub extends Model {
+class Stub extends Model
+{
 
     protected $label = ':Stub';
 

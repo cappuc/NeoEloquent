@@ -1,13 +1,15 @@
-<?php namespace Vinelab\NeoEloquent\Tests\Functional\QueryingRelations;
+<?php
 
+namespace Vinelab\NeoEloquent\Tests\Functional\QueryingRelations;
+
+use Carbon\Carbon;
 use DateTime;
 use Mockery as M;
-use Carbon\Carbon;
-use Vinelab\NeoEloquent\Tests\TestCase;
 use Vinelab\NeoEloquent\Eloquent\Model;
+use Vinelab\NeoEloquent\Tests\TestCase;
 
-class QueryingRelationsTest extends TestCase {
-
+class QueryingRelationsTest extends TestCase
+{
     public function tearDown()
     {
         M::close();
@@ -17,8 +19,8 @@ class QueryingRelationsTest extends TestCase {
 
     public function testQueryingHasCount()
     {
-        $postNoComment   = Post::create(['title' => 'I have no comments =(', 'body' => 'None!']);
-        $postWithComment = Post::create(['title' => 'Nananana', 'body' => 'Commentmaaan']);
+        $postNoComment       = Post::create(['title' => 'I have no comments =(', 'body' => 'None!']);
+        $postWithComment     = Post::create(['title' => 'Nananana', 'body' => 'Commentmaaan']);
         $postWithTwoComments = Post::create(['title' => 'I got two']);
         $postWithTenComments = Post::create(['tite' => 'Up yours posts, got 10 here']);
 
@@ -26,13 +28,11 @@ class QueryingRelationsTest extends TestCase {
         $postWithComment->comments()->save($comment);
 
         // add two comments to $postWithTwoComments
-        for($i = 0; $i < 2; $i++)
-        {
+        for ($i = 0; $i < 2; $i++) {
             $postWithTwoComments->comments()->create(['text' => "Comment $i"]);
         }
         // add ten comments to $postWithTenComments
-        for ($i = 0; $i < 10; $i++)
-        {
+        for ($i = 0; $i < 10; $i++) {
             $postWithTenComments->comments()->create(['text' => "Comment $i"]);
         }
 
@@ -42,16 +42,14 @@ class QueryingRelationsTest extends TestCase {
         $posts = Post::has('comments')->get();
         $this->assertEquals(3, count($posts));
         $expectedHasComments = [$postWithComment->id, $postWithTwoComments->id, $postWithTenComments->id];
-        foreach ($posts as $key => $post)
-        {
+        foreach ($posts as $key => $post) {
             $this->assertTrue(in_array($post->id, $expectedHasComments));
         }
 
         $postsWithMoreThanOneComment = Post::has('comments', '>=', 2)->get();
         $this->assertEquals(2, count($postsWithMoreThanOneComment));
         $expectedWithMoreThanOne = [$postWithTwoComments->id, $postWithTenComments->id];
-        foreach ($postsWithMoreThanOneComment as $post)
-        {
+        foreach ($postsWithMoreThanOneComment as $post) {
             $this->assertTrue(in_array($post->id, $expectedWithMoreThanOne));
         }
 
@@ -79,23 +77,27 @@ class QueryingRelationsTest extends TestCase {
         $anotherManager->roles()->save($manager);
 
         // check admins
-        $admins = User::whereHas('roles', function($q) { $q->where('alias', 'admin'); })->get();
+        $admins = User::whereHas('roles', function ($q) {
+            $q->where('alias', 'admin');
+        })->get();
         $this->assertEquals(2, count($admins));
         $expectedAdmins = [$anotherAdmin, $mrAdmin];
-        foreach ($admins as $key => $admin)
-        {
+        foreach ($admins as $key => $admin) {
             $this->assertEquals($admin->toArray(), $expectedAdmins[$key]->toArray());
         }
         // check editors
-        $editors = User::whereHas('roles', function($q) { $q->where('alias', 'editor'); })->get();
+        $editors = User::whereHas('roles', function ($q) {
+            $q->where('alias', 'editor');
+        })->get();
         $this->assertEquals(1, count($editors));
         $this->assertEquals($mrsEditor->toArray(), $editors->first()->toArray());
         // check managers
         $expectedManagers = [$anotherManager, $mrsManager];
-        $managers = User::whereHas('roles', function($q) { $q->where('alias', 'manager'); })->get();
+        $managers         = User::whereHas('roles', function ($q) {
+            $q->where('alias', 'manager');
+        })->get();
         $this->assertEquals(2, count($managers));
-        foreach ($managers as $key => $manager)
-        {
+        foreach ($managers as $key => $manager) {
             $this->assertEquals($manager->toArray(), $expectedManagers[$key]->toArray());
         }
     }
@@ -107,8 +109,7 @@ class QueryingRelationsTest extends TestCase {
 
         $user->roles()->save($role);
 
-        $found = User::whereHas('roles', function($q) use ($role)
-        {
+        $found = User::whereHas('roles', function ($q) use ($role) {
             $q->where('id', $role->getKey());
         })->first();
 
@@ -123,8 +124,7 @@ class QueryingRelationsTest extends TestCase {
 
         $user->roles()->save($role);
 
-        $found = User::whereHas('roles', function($q) use ($role)
-        {
+        $found = User::whereHas('roles', function ($q) use ($role) {
             $q->where('id', $role->id);
         })->where('id', $user->id)->first();
 
@@ -134,16 +134,20 @@ class QueryingRelationsTest extends TestCase {
 
     public function testQueryingParentWithMultipleWhereHas()
     {
-        $user = User::create(['name' => 'cappuccino']);
-        $role = Role::create(['alias' => 'pikachu']);
+        $user    = User::create(['name' => 'cappuccino']);
+        $role    = Role::create(['alias' => 'pikachu']);
         $account = Account::create(['guid' => uniqid()]);
 
         $user->roles()->save($role);
         $user->account()->save($account);
 
-        $found = User::whereHas('roles', function($q) use($role) { $q->where('id', $role->id); })
-            ->whereHas('account', function($q) use($account) { $q->where('id', $account->id); })
-            ->where('id', $user->id)->first();
+        $found = User::whereHas('roles', function ($q) use ($role) {
+            $q->where('id', $role->id);
+        })
+                     ->whereHas('account', function ($q) use ($account) {
+                         $q->where('id', $account->id);
+                     })
+                     ->where('id', $user->id)->first();
 
         $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\User', $found);
         $this->assertEquals($user->toArray(), $found->toArray());
@@ -152,7 +156,7 @@ class QueryingRelationsTest extends TestCase {
     public function testCreatingModelWithSingleRelation()
     {
         $account = ['guid' => uniqid()];
-        $user = User::createWith(['name' => 'Misteek'], compact('account'));
+        $user    = User::createWith(['name' => 'Misteek'], compact('account'));
 
         $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\User', $user);
         $this->assertTrue($user->exists);
@@ -177,7 +181,7 @@ class QueryingRelationsTest extends TestCase {
 
         $permissions = [
             new Permission(['title' => 'Create Records', 'alias' => 'create', 'dodid' => 'done']),
-            new Permission(['title' => 'Read Records', 'alias'   => 'read', 'dont be so' => 'down']),
+            new Permission(['title' => 'Read Records', 'alias' => 'read', 'dont be so' => 'down']),
             ['title' => 'Update Records', 'alias' => 'update'],
             ['title' => 'Delete Records', 'alias' => 'delete']
         ];
@@ -188,8 +192,7 @@ class QueryingRelationsTest extends TestCase {
         $this->assertTrue($role->exists);
         $this->assertGreaterThanOrEqual(0, $role->id);
 
-        foreach ($role->permissions as $key => $permission)
-        {
+        foreach ($role->permissions as $key => $permission) {
             $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\Permission', $permission);
             $this->assertGreaterThan(0, $permission->id);
             $this->assertNotNull($permission->created_at);
@@ -198,16 +201,14 @@ class QueryingRelationsTest extends TestCase {
             unset($attrs['id']);
             unset($attrs['created_at']);
             unset($attrs['updated_at']);
-            if ($permissions[$key] instanceof Permission)
-            {
+            if ($permissions[$key] instanceof Permission) {
                 $permission = $permissions[$key];
                 $permission = $permission->toArray();
                 unset($permission['id']);
                 unset($permission['created_at']);
                 unset($permission['updated_at']);
                 $this->assertEquals($permission, $attrs);
-            } else
-            {
+            } else {
                 $this->assertEquals($permissions[$key], $attrs);
             }
         }
@@ -245,8 +246,7 @@ class QueryingRelationsTest extends TestCase {
         $this->assertTrue($post->exists);
         $this->assertGreaterThanOrEqual(0, $post->id);
 
-        foreach ($post->photos as $key => $photo)
-        {
+        foreach ($post->photos as $key => $photo) {
             $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\Photo', $photo);
             $this->assertGreaterThan(0, $photo->id);
             $this->assertNotNull($photo->created_at);
@@ -271,7 +271,7 @@ class QueryingRelationsTest extends TestCase {
 
     public function testCreatingModelWithSingleInverseRelation()
     {
-        $user = ['name' => 'Some Name'];
+        $user    = ['name' => 'Some Name'];
         $account = Account::createWith(['guid' => 'globalid'], compact('user'));
 
         $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\Account', $account);
@@ -291,7 +291,7 @@ class QueryingRelationsTest extends TestCase {
     public function testCreatingModelWithMultiInverseRelations()
     {
         $users = new User(['name' => 'safastak']);
-        $role = Role::createWith(['alias'=>'admin'], compact('users'));
+        $role  = Role::createWith(['alias' => 'admin'], compact('users'));
 
         $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\Role', $role);
         $this->assertTrue($role->exists);
@@ -325,8 +325,7 @@ class QueryingRelationsTest extends TestCase {
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $related);
         $this->assertEquals(2, count($related));
 
-        foreach ($related as $key => $tag)
-        {
+        foreach ($related as $key => $tag) {
             $this->assertEquals($tags[$key]->toArray(), $tag->toArray());
         }
     }
@@ -353,9 +352,8 @@ class QueryingRelationsTest extends TestCase {
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $related);
         $this->assertEquals(2, count($related));
 
-        foreach ($related as $key => $tag)
-        {
-            $expected = 'tag'. ($key + 1);
+        foreach ($related as $key => $tag) {
+            $expected = 'tag' . ($key + 1);
             $this->assertEquals($$expected->toArray(), $tag->toArray());
         }
     }
@@ -366,7 +364,12 @@ class QueryingRelationsTest extends TestCase {
         $tag2 = Tag::create(['title' => 'development']);
         $tags = [$tag1->getKey(), $tag2->getKey()];
 
-        $post = Post::createWith(['title' => '...', 'body' => '...', 'mother' => 'something', 'father' => 'wanted'], compact('tags'));
+        $post = Post::createWith([
+            'title'  => '...',
+            'body'   => '...',
+            'mother' => 'something',
+            'father' => 'wanted'
+        ], compact('tags'));
 
         $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\Post', $post);
 
@@ -379,9 +382,8 @@ class QueryingRelationsTest extends TestCase {
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $related);
         $this->assertEquals(2, count($related));
 
-        foreach ($related as $key => $tag)
-        {
-            $expected = 'tag'. ($key + 1);
+        foreach ($related as $key => $tag) {
+            $expected = 'tag' . ($key + 1);
             $this->assertEquals($$expected->toArray(), $tag->toArray());
         }
     }
@@ -406,9 +408,8 @@ class QueryingRelationsTest extends TestCase {
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $related);
         $this->assertEquals(2, count($related));
 
-        foreach ($related as $key => $tag)
-        {
-            $expected = 'tag'. ($key + 1);
+        foreach ($related as $key => $tag) {
+            $expected = 'tag' . ($key + 1);
             $this->assertEquals($$expected->toArray(), $tag->toArray());
         }
     }
@@ -427,9 +428,8 @@ class QueryingRelationsTest extends TestCase {
         $this->assertInstanceOf('Illuminate\Database\Eloquent\Collection', $related);
         $this->assertEquals(2, count($related));
 
-        foreach ($related as $key => $tag)
-        {
-            $expected = 'tag'. ($key + 1);
+        foreach ($related as $key => $tag) {
+            $expected = 'tag' . ($key + 1);
             $this->assertEquals($$expected->toArray(), $tag->toArray());
         }
     }
@@ -462,11 +462,11 @@ class QueryingRelationsTest extends TestCase {
 
     public function testCreatingModelWithMixedRelationsAndPassingCollection()
     {
-        $tag = Tag::create(['title' => 'php']);
+        $tag  = Tag::create(['title' => 'php']);
         $tags = [
-                $tag,
-                ['title' => 'developer'],
-                new Tag(['title' => 'laravel'])
+            $tag,
+            ['title' => 'developer'],
+            new Tag(['title' => 'laravel'])
         ];
 
         $post = Post::createWith(['title' => 'foo', 'body' => 'bar'], compact('tags'));
@@ -485,6 +485,7 @@ class QueryingRelationsTest extends TestCase {
 
     /**
      * Regression for issue #9
+     *
      * @see https://github.com/Vinelab/NeoEloquent/issues/9
      */
     public function testCreateModelWithMultiRelationOfSameRelatedModel()
@@ -507,10 +508,10 @@ class QueryingRelationsTest extends TestCase {
      */
     public function testCreatingModelWithExistingRecursivelyRelatedModel()
     {
-        $jon = User::create(['name' => 'Jon Ronson']);
+        $jon    = User::create(['name' => 'Jon Ronson']);
         $morgan = User::create(['name' => 'Morgan Spurlock']);
 
-        $user = User::createWith(['name' => 'Ken Robinson'],[
+        $user = User::createWith(['name' => 'Ken Robinson'], [
             'colleagues' => [$morgan, $jon]
         ]);
 
@@ -527,8 +528,10 @@ class QueryingRelationsTest extends TestCase {
         $user->roles->first()->permissions;
 
         $found = User::with('roles.permissions')
-            ->whereHas('roles', function($q) use($role) { $q->where('id', $role->id); })
-            ->first();
+                     ->whereHas('roles', function ($q) use ($role) {
+                         $q->where('id', $role->id);
+                     })
+                     ->first();
 
         $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\User', $found);
         $this->assertArrayHasKey('roles', $found->getRelations());
@@ -546,8 +549,10 @@ class QueryingRelationsTest extends TestCase {
         $acc = $role->users->first()->account;
 
         $roleFound = Role::with('users.account')
-            ->whereHas('users', function($q) use($user) { $q->where('id', $user->getKey()); })
-            ->first();
+                         ->whereHas('users', function ($q) use ($user) {
+                             $q->where('id', $user->getKey());
+                         })
+                         ->first();
 
         $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\Role', $roleFound);
         $this->assertArrayHasKey('users', $roleFound->getRelations());
@@ -567,8 +572,10 @@ class QueryingRelationsTest extends TestCase {
         $org = $role->users->first()->organization;
 
         $roleFound = Role::with('users.organization')
-            ->whereHas('users', function($q) use($user) { $q->where('id', $user->getKey()); })
-            ->first();
+                         ->whereHas('users', function ($q) use ($user) {
+                             $q->where('id', $user->getKey());
+                         })
+                         ->first();
 
         $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\Role', $roleFound);
         $this->assertArrayHasKey('users', $roleFound->getRelations());
@@ -600,8 +607,8 @@ class QueryingRelationsTest extends TestCase {
 
     public function testDirectRecursiveRelationQuery()
     {
-        $user = User::createWith(['name' => 'captain'], ['colleagues' => ['name' => 'acme']]);
-        $acme = User::where('name', 'acme')->first();
+        $user  = User::createWith(['name' => 'captain'], ['colleagues' => ['name' => 'acme']]);
+        $acme  = User::where('name', 'acme')->first();
         $found = $user->colleagues()->where('name', 'acme')->first();
         $this->assertInstanceOf('Vinelab\NeoEloquent\Tests\Functional\QueryingRelations\User', $found);
 
@@ -611,13 +618,14 @@ class QueryingRelationsTest extends TestCase {
     public function testSavingCreateWithRelationWithDateTimeAndCarbonInstances()
     {
         $yesterday = Carbon::now()->subDay();
-        $dt = new DateTime();
+        $dt        = new DateTime();
 
-        $user = User::createWith(['name' => 'Some Name', 'dob' => $yesterday],
-            ['colleagues' => ['name' => 'Protectron', 'dob' => $dt]
-        ]);
+        $user = User::createWith(
+            ['name' => 'Some Name', 'dob' => $yesterday],
+            ['colleagues' => ['name' => 'Protectron', 'dob' => $dt]]
+        );
 
-        $houwe = User::first();
+        $houwe     = User::first();
         $colleague = $houwe->colleagues()->first();
 
         $this->assertEquals($yesterday->format(User::getDateFormat()), $houwe->dob);
@@ -626,11 +634,11 @@ class QueryingRelationsTest extends TestCase {
 
     public function testSavingRelationWithDateTimeAndCarbonInstances()
     {
-        $user = User::create(['name' => 'Andrew Hale']);
+        $user      = User::create(['name' => 'Andrew Hale']);
         $yesterday = Carbon::now();
-        $brother = new User(['name' => 'Simon Hale', 'dob' => $yesterday]);
+        $brother   = new User(['name' => 'Simon Hale', 'dob' => $yesterday]);
 
-        $dt = new DateTime();
+        $dt      = new DateTime();
         $someone = User::create(['name' => 'Producer', 'dob' => $dt]);
 
         $user->colleagues()->save($someone);
@@ -649,7 +657,7 @@ class QueryingRelationsTest extends TestCase {
             ['title' => 'foo tit', 'body' => 'some body'],
             [
                 'cover' => ['url' => 'http://url'],
-                'tags' => ['title' => 'theTag'],
+                'tags'  => ['title' => 'theTag'],
             ]
         );
 
@@ -670,8 +678,8 @@ class QueryingRelationsTest extends TestCase {
 
 }
 
-class User extends Model {
-
+class User extends Model
+{
     protected $label = 'User';
 
     protected $fillable = ['name', 'dob'];
@@ -697,8 +705,8 @@ class User extends Model {
     }
 }
 
-class Account extends Model {
-
+class Account extends Model
+{
     protected $label = 'Account';
 
     protected $fillable = ['guid'];
@@ -709,8 +717,8 @@ class Account extends Model {
     }
 }
 
-class Organization extends Model {
-
+class Organization extends Model
+{
     protected $label = 'Organization';
 
     protected $fillable = ['name'];
@@ -721,8 +729,8 @@ class Organization extends Model {
     }
 }
 
-class Role extends Model {
-
+class Role extends Model
+{
     protected $label = 'Role';
 
     protected $fillable = ['title', 'alias'];
@@ -738,8 +746,8 @@ class Role extends Model {
     }
 }
 
-class Permission extends Model {
-
+class Permission extends Model
+{
     protected $label = 'Permission';
 
     protected $fillable = ['title', 'alias'];
@@ -750,8 +758,8 @@ class Permission extends Model {
     }
 }
 
-class Post extends Model {
-
+class Post extends Model
+{
     protected $label = 'Post';
 
     protected $fillable = ['title', 'body', 'summary'];
@@ -782,29 +790,29 @@ class Post extends Model {
     }
 }
 
-class Tag extends Model {
-
+class Tag extends Model
+{
     protected $label = 'Tag';
 
     protected $fillable = ['title'];
 }
 
-class Photo extends Model {
-
+class Photo extends Model
+{
     protected $label = 'Photo';
 
     protected $fillable = ['url', 'caption', 'metadata'];
 }
 
-class Video extends Model {
-
+class Video extends Model
+{
     protected $label = 'Video';
 
     protected $fillable = ['title', 'description', 'stream_url', 'thumbnail'];
 }
 
-class Comment extends Model {
-
+class Comment extends Model
+{
     protected $label = 'Comment';
 
     protected $fillable = ['text'];
