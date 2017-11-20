@@ -1,12 +1,14 @@
 <?php
 
-namespace Vinelab\NeoEloquent\Tests\Integration;
+namespace Vinelab\NeoEloquent\Tests;
 
 use Mockery as M;
-use Vinelab\NeoEloquent\Tests\TestCase;
 
 class ConnectionTest extends TestCase
 {
+    protected $client;
+
+    protected $user;
 
     public function setUp()
     {
@@ -15,19 +17,14 @@ class ConnectionTest extends TestCase
         $this->user = [
             'name'     => 'Mulkave',
             'email'    => 'me@mulkave.io',
-            'username' => 'mulkave'
+            'username' => 'mulkave',
         ];
+
+        $this->client = $this->getClient();
     }
 
     public function tearDown()
     {
-        $query = 'MATCH (n:User) WHERE n.username = {username} DELETE n RETURN count(n)';
-
-        $c = $this->getConnectionWithConfig('default');
-
-        $cypher = $c->getCypherQuery($query, [['username' => $this->user['username']]]);
-        $cypher->getResultSet();
-
         M::close();
 
         parent::tearDown();
@@ -37,7 +34,7 @@ class ConnectionTest extends TestCase
     {
         $c = $this->getConnectionWithConfig('neo4j');
 
-        $this->assertInstanceOf('Vinelab\NeoEloquent\Connection', $c);
+        $this->assertInstanceOf(\Vinelab\NeoEloquent\Connection::class, $c);
     }
 
     public function testConnectionClientInstance()
@@ -46,15 +43,16 @@ class ConnectionTest extends TestCase
 
         $client = $c->getClient();
 
-        $this->assertInstanceOf('Everyman\Neo4j\Client', $client);
+        $this->assertInstanceOf(\GraphAware\Neo4j\Client\Client::class, $client);
     }
 
     public function testGettingConfigParam()
     {
         $c = $this->getConnectionWithConfig('neo4j');
 
-        $this->assertEquals($c->getConfig('port'), 7474);
-        $this->assertEquals($c->getConfig('host'), 'localhost');
+        $config = require(__DIR__ . '/../config/database.php');
+        $this->assertEquals($c->getConfig('port'), $config['connections']['neo4j']['port']);
+        $this->assertEquals($c->getConfig('host'), $config['connections']['neo4j']['host']);
     }
 
     public function testDriverName()
@@ -68,21 +66,22 @@ class ConnectionTest extends TestCase
     {
         $c = $this->getConnectionWithConfig('neo4j');
 
-        $this->assertInstanceOf('Everyman\Neo4j\Client', $c->getClient());
+        $this->assertInstanceOf(\GraphAware\Neo4j\Client\Client::class, $c->getClient());
     }
 
     public function testGettingDefaultHost()
     {
         $c = $this->getConnectionWithConfig('default');
 
-        $this->assertEquals('localhost', $c->getHost());
+        $this->assertEquals('localhost', $c->getHost([]));
+        $this->assertEquals(7474, $c->getPort([]));
     }
 
     public function testGettingDefaultPort()
     {
         $c = $this->getConnectionWithConfig('default');
 
-        $port = $c->getPort();
+        $port = $c->getPort([]);
 
         $this->assertEquals(7474, $port);
         $this->assertInternalType('int', $port);
@@ -94,7 +93,7 @@ class ConnectionTest extends TestCase
 
         $grammar = $c->getQueryGrammar();
 
-        $this->assertInstanceOf('Vinelab\NeoEloquent\Query\Grammars\CypherGrammar', $grammar);
+        $this->assertInstanceOf(\Vinelab\NeoEloquent\Query\Grammars\CypherGrammar::class, $grammar);
     }
 
     public function testPrepareBindings()
@@ -104,8 +103,8 @@ class ConnectionTest extends TestCase
 
         $bindings = ['test' => $date];
 
-        $conn    = $this->getMockConnection();
-        $grammar = m::mock('Vinelab\NeoEloquent\Query\Grammars\CypherGrammar');
+        $conn = $this->getMockConnection();
+        $grammar = M::mock(\Vinelab\NeoEloquent\Query\Grammars\CypherGrammar::class);
         $grammar->shouldReceive('getDateFormat')->once()->andReturn('foo');
         $conn->setQueryGrammar($grammar);
         $result = $conn->prepareBindings($bindings);
@@ -117,9 +116,8 @@ class ConnectionTest extends TestCase
     {
         $connection = $this->getMockConnection();
         $connection->logQuery('foo', [], time());
-        $connection->setEventDispatcher($events = m::mock('Illuminate\Events\Dispatcher'));
-        // $events->shouldReceive('dispatch')->once()->with('illuminate.query', array('foo', array(), null, null));
-        $events->shouldReceive('dispatch')->once()->with(M::type('Illuminate\Database\Events\QueryExecuted'));
+        $connection->setEventDispatcher($events = m::mock(\Illuminate\Events\Dispatcher::class));
+        $events->shouldReceive('dispatch')->once()->with(M::type(\Illuminate\Database\Events\QueryExecuted::class));
         $connection->logQuery('foo', [], null);
     }
 
@@ -138,7 +136,7 @@ class ConnectionTest extends TestCase
     {
         $bindings = [
             'username' => 'jd',
-            'name'     => 'John Doe'
+            'name'     => 'John Doe',
         ];
 
         $c = $this->getConnectionWithConfig('default');
@@ -151,15 +149,15 @@ class ConnectionTest extends TestCase
     public function testPreparingWheresBindings()
     {
         $bindings = [
-            ['username' => 'jd'],
-            ['email' => 'marie@curie.sci']
+            'username' => 'jd',
+            'email'    => 'marie@curie.sci',
         ];
 
         $c = $this->getConnectionWithConfig('default');
 
         $expected = [
             'username' => 'jd',
-            'email'    => 'marie@curie.sci'
+            'email'    => 'marie@curie.sci',
         ];
 
         $prepared = $c->prepareBindings($bindings);
@@ -170,7 +168,7 @@ class ConnectionTest extends TestCase
     public function testPreparingFindByIdBindings()
     {
         $bindings = [
-            ['id' => 6]
+            'id' => 6,
         ];
 
         $c = $this->getConnectionWithConfig('default');
@@ -188,7 +186,7 @@ class ConnectionTest extends TestCase
             'mc'      => 'mc',
             'ae'      => 'ae',
             'animals' => 'animals',
-            'mulkave' => 'mulkave'
+            'mulkave' => 'mulkave',
         ];
 
         $c = $this->getConnectionWithConfig('default');
@@ -197,7 +195,7 @@ class ConnectionTest extends TestCase
             'mc'      => 'mc',
             'ae'      => 'ae',
             'animals' => 'animals',
-            'mulkave' => 'mulkave'
+            'mulkave' => 'mulkave',
         ];
 
         $prepared = $c->prepareBindings($bindings);
@@ -209,17 +207,21 @@ class ConnectionTest extends TestCase
     {
         $c = $this->getConnectionWithConfig('default');
 
-        $query = $c->getCypherQuery('MATCH (u:`User`) RETURN * LIMIT 10', []);
+        $cypher = 'MATCH (u:`User`) RETURN * LIMIT 10';
+        $query = $c->getCypherQuery($cypher, []);
 
-        $this->assertInstanceOf('Everyman\Neo4j\Cypher\Query', $query);
+        $this->assertInternalType('array', $query);
+        $this->assertArrayHasKey('statement', $query);
+        $this->assertArrayHasKey('parameters', $query);
+        $this->assertEquals($cypher, $query['statement']);
     }
 
     public function testCheckingIfBindingIsABinding()
     {
         $c = $this->getConnectionWithConfig('default');
 
-        $empty   = [];
-        $valid   = ['key' => 'value'];
+        $empty = [];
+        $valid = ['key' => 'value'];
         $invalid = [['key' => 'value']];
         $bastard = [['key' => 'value'], 'another' => 'value'];
 
@@ -235,7 +237,7 @@ class ConnectionTest extends TestCase
 
         $connection = $c->createConnection();
 
-        $this->assertInstanceOf('Everyman\Neo4j\Client', $connection);
+        $this->assertInstanceOf(\GraphAware\Neo4j\Client\Client::class, $connection);
     }
 
     public function testSelectWithBindings()
@@ -244,7 +246,7 @@ class ConnectionTest extends TestCase
 
         $query = 'MATCH (n:`User`) WHERE n.username = {username} RETURN * LIMIT 1';
 
-        $bindings = [['username' => $this->user['username']]];
+        $bindings = ['username' => $this->user['username']];
 
         $c = $this->getConnectionWithConfig('default');
 
@@ -256,14 +258,14 @@ class ConnectionTest extends TestCase
 
         $this->assertEquals($log['query'], $query);
         $this->assertEquals($log['bindings'], $bindings);
-        $this->assertInstanceOf('Everyman\Neo4j\Query\ResultSet', $results);
+        $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
         // This is how we get the first row of the result (first [0])
         // and then we get the Node instance (the 2nd [0])
         // and then ask it to return its properties
-        $selected = $results[0][0]->getProperties();
+        $selected = $results->getRecord()->value('n');
 
-        $this->assertEquals($this->user, $selected, 'The fetched User must be the same as the one we just created');
+        $this->assertEquals($this->user, $selected->values(), 'The fetched User must be the same as the one we just created');
     }
 
     /**
@@ -280,13 +282,13 @@ class ConnectionTest extends TestCase
         $query = 'MATCH (n:`User`) WHERE n.username = {username} RETURN * LIMIT 1';
 
         // Get the ID of the created record
-        $results = $c->select($query, [['username' => $this->user['username']]]);
+        $results = $c->select($query, ['username' => $this->user['username']]);
 
-        $node = $results[0][0];
-        $id   = $node->getId();
+        $node = $results->getRecord()->get('n');
+        $id = $node->identity();
 
         $bindings = [
-            ['id' => $id]
+            'id' => $id,
         ];
 
         // Select the Node containing the User record by its id
@@ -298,11 +300,11 @@ class ConnectionTest extends TestCase
 
         $this->assertEquals($log[1]['query'], $query);
         $this->assertEquals($log[1]['bindings'], $bindings);
-        $this->assertInstanceOf('Everyman\Neo4j\Query\ResultSet', $results);
+        $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
-        $selected = $results[0][0]->getProperties();
+        $selected = $results->getRecord()->get('n');
 
-        $this->assertEquals($this->user, $selected);
+        $this->assertEquals($this->user, $selected->values());
     }
 
     public function testAffectingStatement()
@@ -319,14 +321,14 @@ class ConnectionTest extends TestCase
             'RETURN count(n)';
 
         $bindings = [
-            ['type' => $type],
-            ['updated_at' => '2014-05-11 13:37:15'],
-            ['username' => $this->user['username']]
+            'type'       => $type,
+            'updated_at' => '2014-05-11 13:37:15',
+            'username'   => $this->user['username'],
         ];
 
         $results = $c->affectingStatement($query, $bindings);
 
-        $this->assertInstanceOf('Everyman\Neo4j\Query\ResultSet', $results);
+        $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
         foreach ($results as $result) {
             $count = $result[0];
@@ -334,19 +336,17 @@ class ConnectionTest extends TestCase
         }
 
         // Try to find the updated one and make sure it was updated successfully
-        $query  = 'MATCH (n:User) WHERE n.username = {username} RETURN n';
-        $cypher = $c->getCypherQuery($query, [['username' => $this->user['username']]]);
+        $query = 'MATCH (n:User) WHERE n.username = {username} RETURN n';
+        $cypher = $c->getCypherQuery($query, ['username' => $this->user['username']]);
 
-        $results = $cypher->getResultSet();
+        $results = $this->client->run($cypher['statement'], $cypher['parameters']);
 
-        $this->assertInstanceOf('Everyman\Neo4j\Query\ResultSet', $results);
+        $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
         $user = null;
 
-        foreach ($results as $result) {
-            $node = $result[0];
-            $user = $node->getProperties();
-        }
+        $node = $results->getRecord();
+        $user = $node->get('n')->values();
 
         $this->assertEquals($type, $user['type']);
     }
@@ -365,12 +365,12 @@ class ConnectionTest extends TestCase
         $bindings = [
             ['type' => $type],
             ['updated_at' => '2014-05-11 13:37:15'],
-            ['username' => $this->user['username']]
+            ['username' => $this->user['username']],
         ];
 
         $results = $c->affectingStatement($query, $bindings);
 
-        $this->assertInstanceOf('Everyman\Neo4j\Query\ResultSet', $results);
+        $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
         foreach ($results as $result) {
             $count = $result[0];
@@ -381,7 +381,7 @@ class ConnectionTest extends TestCase
     public function testSettingDefaultCallsGetDefaultGrammar()
     {
         $connection = $this->getMockConnection();
-        $mock       = M::mock('StdClass');
+        $mock = M::mock('StdClass');
         $connection->expects($this->once())->method('getDefaultQueryGrammar')->will($this->returnValue($mock));
         $connection->useDefaultQueryGrammar();
         $this->assertEquals($mock, $connection->getQueryGrammar());
@@ -390,7 +390,7 @@ class ConnectionTest extends TestCase
     public function testSettingDefaultCallsGetDefaultPostProcessor()
     {
         $connection = $this->getMockConnection();
-        $mock       = M::mock('StdClass');
+        $mock = M::mock('StdClass');
         $connection->expects($this->once())->method('getDefaultPostProcessor')->will($this->returnValue($mock));
         $connection->useDefaultPostProcessor();
         $this->assertEquals($mock, $connection->getPostProcessor());
@@ -442,8 +442,10 @@ class ConnectionTest extends TestCase
     {
         $connection = $this->getMockConnection(['getName']);
         $connection->expects($this->once())->method('getName')->will($this->returnValue('name'));
-        $connection->setEventDispatcher($events = m::mock('Illuminate\events\Dispatcher'));
-        $events->shouldReceive('dispatch')->once()->with(M::type('Illuminate\Database\Events\TransactionBeginning'));
+        $connection->setEventDispatcher($events = M::mock(\Illuminate\Events\Dispatcher::class));
+        $events->shouldReceive('dispatch')
+               ->once()
+               ->with(M::type(\Illuminate\Database\Events\TransactionBeginning::class));
         $connection->beginTransaction();
     }
 
@@ -451,8 +453,10 @@ class ConnectionTest extends TestCase
     {
         $connection = $this->getMockConnection(['getName']);
         $connection->expects($this->once())->method('getName')->will($this->returnValue('name'));
-        $connection->setEventDispatcher($events = m::mock('Illuminate\events\Dispatcher'));
-        $events->shouldReceive('dispatch')->once()->with(M::type('Illuminate\Database\Events\TransactionCommitted'));
+        $connection->setEventDispatcher($events = m::mock(\Illuminate\Events\Dispatcher::class));
+        $events->shouldReceive('dispatch')
+               ->once()
+               ->with(M::type(\Illuminate\Database\Events\TransactionCommitted::class));
         $connection->commit();
     }
 
@@ -460,16 +464,23 @@ class ConnectionTest extends TestCase
     {
         $connection = $this->getMockConnection(['getName']);
         $connection->expects($this->once())->method('getName')->will($this->returnValue('name'));
-        $connection->setEventDispatcher($events = m::mock('Illuminate\events\Dispatcher'));
-        $events->shouldReceive('dispatch')->once()->with(M::type('Illuminate\Database\Events\TransactionRolledBack'));
-        $connection->rollBack();
+        $connection->setEventDispatcher($events = M::mock(\Illuminate\Events\Dispatcher::class));
+        $events->shouldReceive('dispatch')
+               ->once()
+               ->with(M::type(\Illuminate\Database\Events\TransactionRolledBack::class));
+        $connection->rollback();
     }
 
     public function testTransactionMethodRunsSuccessfully()
     {
-        $client = M::mock('Everyman\Neo4j\Client');
-        $client->shouldReceive('beginTransaction')->once()
-               ->andReturn(M::mock('Everyman\Neo4j\Transaction')->makePartial());
+        $client = M::mock(\GraphAware\Neo4j\Client\Client::class);
+        $client->shouldReceive('transaction')
+               ->once()
+               ->andReturn($transaction = M::mock(\GraphAware\Neo4j\Client\Transaction\Transaction::class));
+
+        $transaction->shouldReceive('commit')
+                    ->shouldReceive('rollback')
+                    ->andReturn('foo');
 
         $connection = $this->getMockConnection();
         $connection->setClient($client);
@@ -482,9 +493,12 @@ class ConnectionTest extends TestCase
 
     public function testTransactionMethodRollsbackAndThrows()
     {
-        $neo = M::mock('Everyman\Neo4j\Client');
-        $neo->shouldReceive('beginTransaction')->once()
-            ->andReturn(M::mock('Everyman\Neo4j\Transaction')->makePartial());
+        $neo = M::mock(\GraphAware\Neo4j\Client\Client::class);
+        $neo->shouldReceive('transaction')
+            ->once()
+            ->andReturn($transaction = M::mock(\GraphAware\Neo4j\Client\Transaction\Transaction::class));
+
+        $transaction->shouldReceive('rollback');
 
         $connection = $this->getMockConnection();
         $connection->setClient($neo);
@@ -501,10 +515,10 @@ class ConnectionTest extends TestCase
     public function testFromCreatesNewQueryBuilder()
     {
         $conn = $this->getMockConnection();
-        $conn->setQueryGrammar(M::mock('Vinelab\NeoEloquent\Query\Grammars\CypherGrammar')->makePartial());
-        $conn->setPostProcessor(M::mock('Illuminate\Database\Query\Processors\Processor')->makePartial());
-        $builder = $conn->table('User');
-        $this->assertInstanceOf('Vinelab\NeoEloquent\Query\Builder', $builder);
+        $conn->setQueryGrammar(M::mock(\Vinelab\NeoEloquent\Query\Grammars\CypherGrammar::class)->makePartial());
+        $conn->setPostProcessor(M::mock(\Illuminate\Database\Query\Processors\Processor::class)->makePartial());
+        $builder = $conn->node('User');
+        $this->assertInstanceOf(\Vinelab\NeoEloquent\Query\Builder::class, $builder);
         $this->assertEquals('User', $builder->from);
     }
 
@@ -522,32 +536,21 @@ class ConnectionTest extends TestCase
         // but this is how they are collected internally
         // so bare with it =)
         $createCypher = $c->getCypherQuery($create, [
-            ['name' => $this->user['name']],
-            ['email' => $this->user['email']],
-            ['username' => $this->user['username']]
+            'name'     => $this->user['name'],
+            'email'    => $this->user['email'],
+            'username' => $this->user['username'],
         ]);
 
-        return $createCypher->getResultSet();
+        return $this->client->sendCypherQuery($createCypher['statement'], $createCypher['parameters']);
     }
 
     protected function getMockConnection($methods = [])
     {
-        $defaults = [
-            'getDefaultQueryGrammar',
-            'getDefaultPostProcessor',
-            'getDefaultSchemaGrammar',
-            'getDoctrineSchemaManager',
-            'getDoctrineConnection'
-        ];
+        $defaults = ['getDefaultQueryGrammar', 'getDefaultPostProcessor', 'getDefaultSchemaGrammar'];
 
         return $this->getMockBuilder(\Vinelab\NeoEloquent\Connection::class)
                     ->setMethods(array_merge($defaults, $methods))
-                    ->setConstructorArgs([])
+                    ->setConstructorArgs([$this->dbConfig['connections']['neo4j']])
                     ->getMock();
     }
-
-}
-
-class DatabaseConnectionTestMockNeo
-{
 }

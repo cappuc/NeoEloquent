@@ -1,30 +1,32 @@
-<?php namespace Vinelab\NeoEloquent;
+<?php
+
+namespace Vinelab\NeoEloquent;
 
 use Exception;
-use DateTime, Closure;
+use DateTime;
+use Closure;
+use GraphAware\Neo4j\Client\Client;
+use GraphAware\Neo4j\Client\ClientBuilder;
 use Illuminate\Support\Arr;
-use Everyman\Neo4j\Query\ResultSet;
-use Vinelab\NeoEloquent\Query\Builder;
-use Vinelab\NeoEloquent\QueryException;
-use Vinelab\NeoEloquent\Query\Processors\Processor;
-use Everyman\Neo4j\Client as NeoClient;
-use Everyman\Neo4j\Cypher\Query as CypherQuery;
-use Illuminate\Database\Connection as IlluminateConnection;
-use Illuminate\Database\Schema\Grammars\Grammar as IlluminateSchemaGrammar;
+use Vinelab\NeoEloquent\Query\Builder as QueryBuilder;
+use Illuminate\Database\Connection as BaseConnection;
+use Illuminate\Database\Schema\Grammars\Grammar as BaseSchemaGrammar;
+use Vinelab\NeoEloquent\Query\Grammars\CypherGrammar as QueryGrammar;
+use Vinelab\NeoEloquent\Schema\Grammars\CypherGrammar as SchemaGrammar;
 
-class Connection extends IlluminateConnection {
-
+class Connection extends BaseConnection
+{
     /**
      * The Neo4j active client connection
      *
-     * @var \Everyman\Neo4j\Client
+     * @var \GraphAware\Neo4j\Client\Client
      */
     protected $neo;
 
     /**
      * The Neo4j database transaction
      *
-     * @var \Everyman\Neo4j\Transaction
+     * @var \GraphAware\Neo4j\Client\Transaction\Transaction
      */
     protected $transaction;
 
@@ -33,13 +35,13 @@ class Connection extends IlluminateConnection {
      *
      * @var array
      */
-    protected $defaults = array(
-        'host' => 'localhost',
-        'port' => 7474,
+    protected $defaults = [
+        'host'     => 'localhost',
+        'port'     => 7474,
         'username' => null,
         'password' => null,
-        'ssl' => false
-    );
+        'ssl'      => false
+    ];
 
     /**
      * The neo4j driver name
@@ -60,7 +62,7 @@ class Connection extends IlluminateConnection {
      *
      * @param array $config The database connection configuration
      */
-    public function __construct(array $config = array())
+    public function __construct(array $config = [])
     {
         $this->config = $config;
 
@@ -78,19 +80,27 @@ class Connection extends IlluminateConnection {
     /**
      * Create a new Neo4j client
      *
-     * @return \Everyman\Neo4j\Client
+     * @return \GraphAware\Neo4j\Client\Client
      */
     public function createConnection()
     {
-        $client = new NeoClient($this->getHost(), $this->getPort());
-        $client->getTransport()->useHttps($this->getSsl())->setAuth($this->getUsername(), $this->getPassword());
-        return $client;
+        return ClientBuilder::create()
+                            ->addConnection(
+                                'default',
+                                $this->getHttpUrl()
+                            )
+                            ->build();
+    }
+
+    protected function getHttpUrl()
+    {
+        return "http://{$this->getUsername()}:{$this->getPassword()}@{$this->getHost()}:{$this->getPort()}";
     }
 
     /**
      * Get the currenty active database client
      *
-     * @return \Everyman\Neo4j\Client
+     * @return \GraphAware\Neo4j\Client\Client
      */
     public function getClient()
     {
@@ -101,13 +111,12 @@ class Connection extends IlluminateConnection {
      * Set the client responsible for the
      * database communication
      *
-     * @param \Everyman\Neo4j\Client $client
+     * @param \GraphAware\Neo4j\Client\Client $client
      */
-    public function setClient(NeoClient $client)
+    public function setClient(Client $client)
     {
         $this->neo = $client;
     }
-
 
     /**
      * Get the connection host
@@ -131,6 +140,7 @@ class Connection extends IlluminateConnection {
 
     /**
      * Get the connection username
+     *
      * @return int|string
      */
     public function getUsername()
@@ -140,6 +150,7 @@ class Connection extends IlluminateConnection {
 
     /**
      * Get the connection password
+     *
      * @return int|string
      */
     public function getPassword()
@@ -149,6 +160,7 @@ class Connection extends IlluminateConnection {
 
     /**
      * Get the connection ssl setting
+     *
      * @return bool
      */
     public function getSsl()
@@ -159,7 +171,7 @@ class Connection extends IlluminateConnection {
     /**
      * Get an option from the configuration options.
      *
-     * @param  string|null  $option
+     * @param  string|null $option
      * @return mixed
      */
     public function getConfig($option = null)
@@ -180,60 +192,65 @@ class Connection extends IlluminateConnection {
     /**
      * Run a select statement against the database.
      *
-     * @param  string  $query
-     * @param  array   $bindings
-     * @param  bool    $useReadPdo
+     * @param  string $query
+     * @param  array $bindings
+     * @param  bool $useReadPdo
      * @return array
      */
-    public function select($query, $bindings = array(),$useReadPdo = false)
+    public function select($query, $bindings = [], $useReadPdo = false)
     {
-        return $this->run($query, $bindings, function(self $me, $query, array $bindings)
-        {
-            if ($me->pretending()) return array();
+        return $this->run($query, $bindings, function (self $me, $query, array $bindings) {
+            if ($me->pretending()) {
+                return [];
+            }
 
             // For select statements, we'll simply execute the query and return an array
             // of the database result set. Each element in the array will be a single
             // node from the database, and will either be an array or objects.
-            $statement = $me->getCypherQuery($query, $bindings);
+            $query = $me->getCypherQuery($query, $bindings);
 
-            return $statement->getResultSet();
+            return $this->getClient()
+                        ->run($query['statement'], $query['parameters']);
         });
     }
 
     /**
      * Run a Cypher statement and get the number of nodes affected.
      *
-     * @param  string  $query
-     * @param  array   $bindings
-     * @return int
+     * @param  string $query
+     * @param  array $bindings
+     * @return \GraphAware\Common\Result\Result
      */
-    public function affectingStatement($query, $bindings = array())
+    public function affectingStatement($query, $bindings = [])
     {
-        return $this->run($query, $bindings, function(self $me, $query, array $bindings)
-        {
-            if ($me->pretending()) return 0;
+        return $this->run($query, $bindings, function (self $me, $query, array $bindings) {
+            if ($me->pretending()) {
+                return 0;
+            }
 
             // For update or delete statements, we want to get the number of rows affected
             // by the statement and return that back to the developer. We'll first need
             // to execute the statement and then we'll use CypherQuery to fetch the affected.
-            $statement = $me->getCypherQuery($query, $bindings);
+            $query = $me->getCypherQuery($query, $bindings);
 
-            return $statement->getResultSet();
+            return $this->getClient()
+                        ->run($query['statement'], $query['parameters']);
         });
     }
 
     /**
      * Execute a Cypher statement and return the boolean result.
      *
-     * @param  string  $query
-     * @param  array   $bindings
+     * @param  string $query
+     * @param  array $bindings
      * @return bool|\Everyman\Neo4j\Query\ResultSet When $result is set to true.
      */
-    public function statement($query, $bindings = array(), $rawResults = false)
+    public function statement($query, $bindings = [], $rawResults = false)
     {
-        return $this->run($query, $bindings, function(self $me, $query, array $bindings) use($rawResults)
-        {
-            if ($me->pretending()) return true;
+        return $this->run($query, $bindings, function (self $me, $query, array $bindings) use ($rawResults) {
+            if ($me->pretending()) {
+                return true;
+            }
 
             $statement = $me->getCypherQuery($query, $bindings);
 
@@ -245,31 +262,30 @@ class Connection extends IlluminateConnection {
 
     /**
      * Make a query out of a Cypher statement
-     * and the bindings values
+     * and the bindings values.
      *
-     * @param  string  $query
-     * @param  array  $bindings
-     * @return CypherQuery
+     * @param string $query
+     * @param array $bindings
+     * @return array
      */
     public function getCypherQuery($query, array $bindings)
     {
-        return new CypherQuery($this->getClient(), $query, $this->prepareBindings($bindings));
+        return ['statement' => $query, 'parameters' => $this->prepareBindings($bindings)];
     }
 
     /**
      * Prepare the query bindings for execution.
      *
-     * @param  array  $bindings
+     * @param  array $bindings
      * @return array
      */
     public function prepareBindings(array $bindings)
     {
         $grammar = $this->getQueryGrammar();
 
-        $prepared = array();
+        $prepared = [];
 
-        foreach ($bindings as $key => $binding)
-        {
+        foreach ($bindings as $key => $binding) {
             // The bindings are collected in a little bit different way than
             // Eloquent, we will need the key name in order to know where to replace
             // the value using the Neo4j client.
@@ -277,8 +293,7 @@ class Connection extends IlluminateConnection {
 
             // We need to get the array value of the binding
             // if it were mapped
-            if (is_array($value))
-            {
+            if (is_array($value)) {
                 // There are different ways to handle multiple
                 // bindings vs. single bindings as values.
                 $value = array_values($value);
@@ -288,8 +303,7 @@ class Connection extends IlluminateConnection {
             // date string. Each query grammar maintains its own date string format
             // so we'll just ask the grammar for the format to get from the date.
 
-            if ($value instanceof DateTime)
-            {
+            if ($value instanceof DateTime) {
                 $binding = $value->format($grammar->getDateFormat());
             }
 
@@ -301,21 +315,20 @@ class Connection extends IlluminateConnection {
             // will not accept replacing "id(n)" with a value
             // which have been previously processed by the grammar
             // to be _nodeId instead.
-            if ( ! is_array($binding))
-            {
+            if (! is_array($binding)) {
                 $binding = [$binding];
             }
 
-            foreach ($binding as $property => $real)
-            {
+            foreach ($binding as $property => $real) {
                 // We should not pass any numeric key-value items since the Neo4j client expects
                 // a JSON map parameters.
-                if (is_numeric($property))
-                {
+                if (is_numeric($property)) {
                     $property = (! is_numeric($key)) ? $key : 'id';
                 }
 
-                if ($property == 'id') $property = $grammar->getIdReplacement($property);
+                if ($property == 'id') {
+                    $property = $grammar->getIdReplacement($property);
+                }
 
                 $prepared[$property] = $real;
             }
@@ -331,8 +344,7 @@ class Connection extends IlluminateConnection {
      */
     public function getQueryGrammar()
     {
-        if ( ! $this->queryGrammar)
-        {
+        if (! $this->queryGrammar) {
             $this->useDefaultQueryGrammar();
         }
 
@@ -346,7 +358,7 @@ class Connection extends IlluminateConnection {
      */
     protected function getDefaultQueryGrammar()
     {
-        return new Query\Grammars\CypherGrammar;
+        return new QueryGrammar();
     }
 
     /**
@@ -360,8 +372,7 @@ class Connection extends IlluminateConnection {
      */
     public function isBinding(array $binding)
     {
-        if ( ! empty($binding))
-        {
+        if (! empty($binding)) {
             // A binding is valid only when the key is not a number
             $keys = array_keys($binding);
 
@@ -380,9 +391,8 @@ class Connection extends IlluminateConnection {
     {
         ++$this->transactions;
 
-        if ($this->transactions == 1)
-        {
-            $this->transaction = $this->neo->beginTransaction();
+        if ($this->transactions == 1) {
+            $this->transaction = $this->neo->transaction();
         }
 
         $this->fireConnectionEvent('beganTransaction');
@@ -395,7 +405,9 @@ class Connection extends IlluminateConnection {
      */
     public function commit()
     {
-        if ($this->transactions == 1) $this->transaction->commit();
+        if ($this->transactions == 1) {
+            $this->transaction->commit();
+        }
 
         --$this->transactions;
 
@@ -409,14 +421,11 @@ class Connection extends IlluminateConnection {
      */
     public function rollBack($toLevel = null)
     {
-        if ($this->transactions == 1)
-        {
+        if ($this->transactions == 1) {
             $this->transactions = 0;
 
             $this->transaction->rollBack();
-        }
-        else
-        {
+        } else {
             --$this->transactions;
         }
 
@@ -424,25 +433,37 @@ class Connection extends IlluminateConnection {
     }
 
     /**
+     * Begin a fluent query against a node.
+     *
+     * @param string $label
+     *
+     * @return \Vinelab\NeoEloquent\Query\Builder
+     */
+    public function node($label)
+    {
+        $query = new QueryBuilder($this, $this->getQueryGrammar(), $this->getPostProcessor());
+
+        return $query->from($label);
+    }
+
+    /**
      * Begin a fluent query against a database table.
      * In neo4j's terminologies this is a node.
      *
-     * @param  string  $table
+     * @param  string $table
      * @return \Vinelab\NeoEloquent\Query\Builder
      */
     public function table($table)
     {
-        $query = new Builder($this, $this->getQueryGrammar(), $this->getPostProcessor());
-
-        return $query->from($table);
+        return $this->node($table);
     }
 
     /**
      * Run a Cypher statement and log its execution context.
      *
-     * @param  string   $query
-     * @param  array    $bindings
-     * @param  Closure  $callback
+     * @param  string $query
+     * @param  array $bindings
+     * @param  Closure $callback
      * @return mixed
      *
      * @throws QueryException
@@ -454,16 +475,13 @@ class Connection extends IlluminateConnection {
         // To execute the statement, we'll simply call the callback, which will actually
         // run the Cypher against the Neo4j connection. Then we can calculate the time it
         // took to execute and log the query Cypher, bindings and time in our memory.
-        try
-        {
+        try {
             $result = $callback($this, $query, $bindings);
         }
-
             // If an exception occurs when attempting to run a query, we'll format the error
             // message to include the bindings with Cypher, which will make this exception a
             // lot more helpful to the developer instead of just the database's errors.
-        catch (Exception $e)
-        {
+        catch (Exception $e) {
             throw new QueryException($query, $bindings, $e);
         }
 
@@ -477,13 +495,13 @@ class Connection extends IlluminateConnection {
         return $result;
     }
 
-        /**
+    /**
      * Set the schema grammar used by the connection.
      *
      * @param  \Illuminate\Database\Schema\Grammars\Grammar
      * @return void
      */
-    public function setSchemaGrammar(IlluminateSchemaGrammar $grammar)
+    public function setSchemaGrammar(BaseSchemaGrammar $grammar)
     {
         $this->schemaGrammar = $grammar;
     }
@@ -503,7 +521,10 @@ class Connection extends IlluminateConnection {
      *
      * @return \Illuminate\Database\Schema\Grammars\Grammar
      */
-    protected function getDefaultSchemaGrammar() {}
+    protected function getDefaultSchemaGrammar()
+    {
+        return new SchemaGrammar();
+    }
 
     /**
      * Get a schema builder instance for the connection.
@@ -519,7 +540,7 @@ class Connection extends IlluminateConnection {
         return new Schema\Builder($this);
     }
 
-     /**
+    /**
      * Get the last Id created by Neo4J
      *
      * @return int
