@@ -73,15 +73,15 @@ class ConnectionTest extends TestCase
     {
         $c = $this->getConnectionWithConfig('default');
 
-        $this->assertEquals('localhost', $c->getHost([]));
-        $this->assertEquals(7474, $c->getPort([]));
+        $this->assertEquals('localhost', $c->getHost());
+        $this->assertEquals(7474, $c->getPort());
     }
 
     public function testGettingDefaultPort()
     {
         $c = $this->getConnectionWithConfig('default');
 
-        $port = $c->getPort([]);
+        $port = $c->getPort();
 
         $this->assertEquals(7474, $port);
         $this->assertInternalType('int', $port);
@@ -115,10 +115,9 @@ class ConnectionTest extends TestCase
     public function testLogQueryFiresEventsIfSet()
     {
         $connection = $this->getMockConnection();
-        $connection->logQuery('foo', [], time());
         $connection->setEventDispatcher($events = m::mock(\Illuminate\Events\Dispatcher::class));
         $events->shouldReceive('dispatch')->once()->with(M::type(\Illuminate\Database\Events\QueryExecuted::class));
-        $connection->logQuery('foo', [], null);
+        $connection->logQuery('foo', [], time());
     }
 
     public function testPretendOnlyLogsQueries()
@@ -155,21 +154,14 @@ class ConnectionTest extends TestCase
 
         $c = $this->getConnectionWithConfig('default');
 
-        $expected = [
-            'username' => 'jd',
-            'email'    => 'marie@curie.sci',
-        ];
-
         $prepared = $c->prepareBindings($bindings);
 
-        $this->assertEquals($expected, $prepared);
+        $this->assertEquals($bindings, $prepared);
     }
 
     public function testPreparingFindByIdBindings()
     {
-        $bindings = [
-            'id' => 6,
-        ];
+        $bindings = ['id' => 6];
 
         $c = $this->getConnectionWithConfig('default');
 
@@ -191,16 +183,9 @@ class ConnectionTest extends TestCase
 
         $c = $this->getConnectionWithConfig('default');
 
-        $expected = [
-            'mc'      => 'mc',
-            'ae'      => 'ae',
-            'animals' => 'animals',
-            'mulkave' => 'mulkave',
-        ];
-
         $prepared = $c->prepareBindings($bindings);
 
-        $this->assertEquals($expected, $prepared);
+        $this->assertEquals($bindings, $prepared);
     }
 
     public function testGettingCypherGrammar()
@@ -208,12 +193,13 @@ class ConnectionTest extends TestCase
         $c = $this->getConnectionWithConfig('default');
 
         $cypher = 'MATCH (u:`User`) RETURN * LIMIT 10';
-        $query = $c->getCypherQuery($cypher, []);
+        $query = $c->getCypherQuery($cypher);
 
         $this->assertInternalType('array', $query);
         $this->assertArrayHasKey('statement', $query);
         $this->assertArrayHasKey('parameters', $query);
         $this->assertEquals($cypher, $query['statement']);
+        $this->assertEquals([], $query['parameters']);
     }
 
     public function testCheckingIfBindingIsABinding()
@@ -224,10 +210,12 @@ class ConnectionTest extends TestCase
         $valid = ['key' => 'value'];
         $invalid = [['key' => 'value']];
         $bastard = [['key' => 'value'], 'another' => 'value'];
+        $bastard2 = ['another' => 'value', ['key' => 'value']];
 
         $this->assertFalse($c->isBinding($empty));
         $this->assertFalse($c->isBinding($invalid));
         $this->assertFalse($c->isBinding($bastard));
+        $this->assertFalse($c->isBinding($bastard2));
         $this->assertTrue($c->isBinding($valid));
     }
 
@@ -242,7 +230,7 @@ class ConnectionTest extends TestCase
 
     public function testSelectWithBindings()
     {
-        $created = $this->createUser();
+        $this->createUser();
 
         $query = 'MATCH (n:`User`) WHERE n.username = {username} RETURN * LIMIT 1';
 
@@ -253,15 +241,13 @@ class ConnectionTest extends TestCase
         $c->enableQueryLog();
         $results = $c->select($query, $bindings);
 
-        $log = $c->getQueryLog();
-        $log = reset($log);
+        $log = $c->getQueryLog()[0];
 
         $this->assertEquals($log['query'], $query);
         $this->assertEquals($log['bindings'], $bindings);
         $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
-        // This is how we get the first row of the result (first [0])
-        // and then we get the Node instance (the 2nd [0])
+        // This is how we get the first row of the result
         // and then ask it to return its properties
         $selected = $results->getRecord()->value('n');
 
@@ -274,7 +260,7 @@ class ConnectionTest extends TestCase
     public function testSelectWithBindingsById()
     {
         // Create the User record
-        $created = $this->createUser();
+        $this->createUser();
 
         $c = $this->getConnectionWithConfig('default');
         $c->enableQueryLog();
@@ -285,21 +271,18 @@ class ConnectionTest extends TestCase
         $results = $c->select($query, ['username' => $this->user['username']]);
 
         $node = $results->getRecord()->get('n');
-        $id = $node->identity();
 
-        $bindings = [
-            'id' => $id,
-        ];
+        $bindings = ['id' => $node->identity()];
 
         // Select the Node containing the User record by its id
         $query = 'MATCH (n:`User`) WHERE id(n) = {idn} RETURN * LIMIT 1';
 
         $results = $c->select($query, $bindings);
 
-        $log = $c->getQueryLog();
+        $log = $c->getQueryLog()[1];
 
-        $this->assertEquals($log[1]['query'], $query);
-        $this->assertEquals($log[1]['bindings'], $bindings);
+        $this->assertEquals($log['query'], $query);
+        $this->assertEquals($log['bindings'], $bindings);
         $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
         $selected = $results->getRecord()->get('n');
@@ -311,17 +294,15 @@ class ConnectionTest extends TestCase
     {
         $c = $this->getConnectionWithConfig('default');
 
-        $created = $this->createUser();
+        $this->createUser();
 
-        $type = 'dev';
-
-        // Now we update the type and set it to $type
+        // Now we update the type and set it to 'dev'
         $query = 'MATCH (n:`User`) WHERE n.username = {username} ' .
             'SET n.type = {type}, n.updated_at = {updated_at} ' .
             'RETURN count(n)';
 
         $bindings = [
-            'type'       => $type,
+            'type'       => 'dev',
             'updated_at' => '2014-05-11 13:37:15',
             'username'   => $this->user['username'],
         ];
@@ -330,10 +311,7 @@ class ConnectionTest extends TestCase
 
         $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
-        foreach ($results as $result) {
-            $count = $result[0];
-            $this->assertEquals(1, $count);
-        }
+        $this->assertEquals(1, $results->getRecord()->value('count(n)'));
 
         // Try to find the updated one and make sure it was updated successfully
         $query = 'MATCH (n:User) WHERE n.username = {username} RETURN n';
@@ -343,27 +321,22 @@ class ConnectionTest extends TestCase
 
         $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
-        $user = null;
+        $user = $results->getRecord()->get('n');
 
-        $node = $results->getRecord();
-        $user = $node->get('n')->values();
-
-        $this->assertEquals($type, $user['type']);
+        $this->assertEquals('dev', $user->value('type'));
     }
 
     public function testAffectingStatementOnNonExistingRecord()
     {
         $c = $this->getConnectionWithConfig('default');
 
-        $type = 'dev';
-
-        // Now we update the type and set it to $type
+        // Now we update the type and set it to 'dev'
         $query = 'MATCH (n:`User`) WHERE n.username = {username} ' .
             'SET n.type = {type}, n.updated_at = {updated_at} ' .
             'RETURN count(n)';
 
         $bindings = [
-            ['type' => $type],
+            ['type' => 'dev'],
             ['updated_at' => '2014-05-11 13:37:15'],
             ['username' => $this->user['username']],
         ];
@@ -372,10 +345,7 @@ class ConnectionTest extends TestCase
 
         $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
-        foreach ($results as $result) {
-            $count = $result[0];
-            $this->assertEquals(0, $count);
-        }
+        $this->assertEquals(0, $results->getRecord()->value('count(n)'));
     }
 
     public function testSettingDefaultCallsGetDefaultGrammar()
@@ -479,7 +449,6 @@ class ConnectionTest extends TestCase
                ->andReturn($transaction = M::mock(\GraphAware\Neo4j\Client\Transaction\Transaction::class));
 
         $transaction->shouldReceive('commit')
-                    ->shouldReceive('rollback')
                     ->andReturn('foo');
 
         $connection = $this->getMockConnection();

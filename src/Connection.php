@@ -2,15 +2,16 @@
 
 namespace Vinelab\NeoEloquent;
 
-use Exception;
-use DateTime;
 use Closure;
+use DateTime;
+use Exception;
+use GraphAware\Common\Result\Result;
 use GraphAware\Neo4j\Client\Client;
 use GraphAware\Neo4j\Client\ClientBuilder;
-use Illuminate\Support\Arr;
-use Vinelab\NeoEloquent\Query\Builder as QueryBuilder;
 use Illuminate\Database\Connection as BaseConnection;
 use Illuminate\Database\Schema\Grammars\Grammar as BaseSchemaGrammar;
+use Illuminate\Support\Arr;
+use Vinelab\NeoEloquent\Query\Builder as QueryBuilder;
 use Vinelab\NeoEloquent\Query\Grammars\CypherGrammar as QueryGrammar;
 use Vinelab\NeoEloquent\Schema\Grammars\CypherGrammar as SchemaGrammar;
 
@@ -85,20 +86,24 @@ class Connection extends BaseConnection
     public function createConnection()
     {
         return ClientBuilder::create()
-                            ->addConnection(
-                                'default',
-                                $this->getHttpUrl()
-                            )
+                            ->addConnection('default', $this->getHttpUrl())
                             ->build();
     }
 
+    /**
+     * Build Http Url for connection
+     *
+     * @return string
+     */
     protected function getHttpUrl()
     {
-        return "http://{$this->getUsername()}:{$this->getPassword()}@{$this->getHost()}:{$this->getPort()}";
+        $method = $this->getSsl() ? 'https' : 'http';
+
+        return "{$method}://{$this->getUsername()}:{$this->getPassword()}@{$this->getHost()}:{$this->getPort()}";
     }
 
     /**
-     * Get the currenty active database client
+     * Get the currently active database client
      *
      * @return \GraphAware\Neo4j\Client\Client
      */
@@ -196,6 +201,7 @@ class Connection extends BaseConnection
      * @param  array $bindings
      * @param  bool $useReadPdo
      * @return array
+     * @throws \Vinelab\NeoEloquent\QueryException
      */
     public function select($query, $bindings = [], $useReadPdo = false)
     {
@@ -220,6 +226,7 @@ class Connection extends BaseConnection
      * @param  string $query
      * @param  array $bindings
      * @return \GraphAware\Common\Result\Result
+     * @throws \Vinelab\NeoEloquent\QueryException
      */
     public function affectingStatement($query, $bindings = [])
     {
@@ -243,7 +250,9 @@ class Connection extends BaseConnection
      *
      * @param  string $query
      * @param  array $bindings
-     * @return bool|\Everyman\Neo4j\Query\ResultSet When $result is set to true.
+     * @param bool $rawResults
+     * @return bool|\GraphAware\Common\Result\Result When $result is set to true.
+     * @throws \Vinelab\NeoEloquent\QueryException
      */
     public function statement($query, $bindings = [], $rawResults = false)
     {
@@ -252,11 +261,12 @@ class Connection extends BaseConnection
                 return true;
             }
 
-            $statement = $me->getCypherQuery($query, $bindings);
+            $query = $me->getCypherQuery($query, $bindings);
 
-            $result = $statement->getResultSet();
+            $result = $this->getClient()
+                           ->run($query['statement'], $query['parameters']);
 
-            return ($rawResults === true) ? $result : $result instanceof ResultSet;
+            return ($rawResults === true) ? $result : $result instanceof Result;
         });
     }
 
@@ -268,7 +278,7 @@ class Connection extends BaseConnection
      * @param array $bindings
      * @return array
      */
-    public function getCypherQuery($query, array $bindings)
+    public function getCypherQuery($query, array $bindings = [])
     {
         return ['statement' => $query, 'parameters' => $this->prepareBindings($bindings)];
     }
@@ -279,62 +289,17 @@ class Connection extends BaseConnection
      * @param  array $bindings
      * @return array
      */
-    public function prepareBindings(array $bindings)
+    public function prepareBindings(array $bindings = [])
     {
-        $grammar = $this->getQueryGrammar();
+        return collect($bindings)->mapWithKeys(function ($binding, $key) {
+            return is_array($binding) ? $binding : [$key => $binding];
+        })->map(function ($value) {
+            return $value instanceof DateTime ? $value->format($this->getQueryGrammar()->getDateFormat()) : $value;
+        })->mapWithKeys(function ($value, $key) {
+            $property = is_numeric($key) || $key == 'id' ? $this->getQueryGrammar()->getIdReplacement($key) : $key;
 
-        $prepared = [];
-
-        foreach ($bindings as $key => $binding) {
-            // The bindings are collected in a little bit different way than
-            // Eloquent, we will need the key name in order to know where to replace
-            // the value using the Neo4j client.
-            $value = $binding;
-
-            // We need to get the array value of the binding
-            // if it were mapped
-            if (is_array($value)) {
-                // There are different ways to handle multiple
-                // bindings vs. single bindings as values.
-                $value = array_values($value);
-            }
-
-            // We need to transform all instances of the DateTime class into an actual
-            // date string. Each query grammar maintains its own date string format
-            // so we'll just ask the grammar for the format to get from the date.
-
-            if ($value instanceof DateTime) {
-                $binding = $value->format($grammar->getDateFormat());
-            }
-
-            $property = is_array($binding) ? key($binding) : $key;
-
-            // We will set the binding key and value, then
-            // we replace the binding property of the id (if found)
-            // with a _nodeId instead since the client
-            // will not accept replacing "id(n)" with a value
-            // which have been previously processed by the grammar
-            // to be _nodeId instead.
-            if (! is_array($binding)) {
-                $binding = [$binding];
-            }
-
-            foreach ($binding as $property => $real) {
-                // We should not pass any numeric key-value items since the Neo4j client expects
-                // a JSON map parameters.
-                if (is_numeric($property)) {
-                    $property = (! is_numeric($key)) ? $key : 'id';
-                }
-
-                if ($property == 'id') {
-                    $property = $grammar->getIdReplacement($property);
-                }
-
-                $prepared[$property] = $real;
-            }
-        }
-
-        return $prepared;
+            return [$property => $value];
+        })->toArray();
     }
 
     /**
@@ -374,9 +339,9 @@ class Connection extends BaseConnection
     {
         if (! empty($binding)) {
             // A binding is valid only when the key is not a number
-            $keys = array_keys($binding);
-
-            return ! is_numeric(reset($keys));
+            return collect($binding)->keys()->reduce(function ($final, $key) {
+                return $final && ! is_numeric($key);
+            }, true);
         }
 
         return false;
@@ -417,6 +382,7 @@ class Connection extends BaseConnection
     /**
      * Rollback the active database transaction.
      *
+     * @param null $toLevel
      * @return void
      */
     public function rollBack($toLevel = null)

@@ -10,16 +10,26 @@ use Vinelab\NeoEloquent\Tests\TestCase;
 
 class QueryBuilderTest extends TestCase
 {
+    protected $grammar;
+
+    protected $connection;
+
+    protected $processor;
+
+    protected $neoClient;
+
+    protected $builder;
+
     public function setUp()
     {
         parent::setUp();
 
-        $this->grammar    = M::mock('Vinelab\NeoEloquent\Query\Grammars\CypherGrammar')->makePartial();
-        $this->connection = M::mock('Vinelab\NeoEloquent\Connection');
-        $this->processor  = new Processor();
+        $this->grammar = M::mock(\Vinelab\NeoEloquent\Query\Grammars\CypherGrammar::class)->makePartial();
+        $this->connection = M::mock(\Vinelab\NeoEloquent\Connection::class)->makePartial();
+        $this->processor = new Processor();
 
-        $this->neoClient = M::mock('Everyman\Neo4j\Client');
-        $this->connection->shouldReceive('getClient')->once()->andReturn($this->neoClient);
+        $this->neoClient = M::mock(\GraphAware\Neo4j\Client\Client::class);
+        $this->connection->shouldReceive('getClient')->andReturn($this->neoClient);
 
         $this->builder = new Builder($this->connection, $this->grammar, $this->processor);
     }
@@ -51,23 +61,46 @@ class QueryBuilderTest extends TestCase
             'power'  => 'Strong Fart Noises'
         ];
 
-        $node = M::mock('Everyman\Neo4j\Node');
+        $query = [
+            'statement'  => 'CREATE (hero:`Hero`) SET hero.length = {length_create}, hero.height = {height_create}, hero.power = {power_create} RETURN hero',
+            'parameters' => [
+                'length_create' => $values['length'],
+                'height_create' => $values['height'],
+                'power_create'  => $values['power'],
+            ],
+        ];
 
-        $this->neoClient->shouldReceive('makeNode')->once()->andReturn($node);
-        $this->neoClient->shouldReceive('makeLabel')->once()->andReturn($label);
+        $id = 69;
+        $node = new \GraphAware\Neo4j\Client\Formatter\Type\Node($id, $label, $values);
+        $result = M::mock(\GraphAware\Common\Result\Result::class);
+        $result->shouldReceive('getRecord')->once()->andReturn($node);
+        $this->neoClient->shouldReceive('run')
+                        ->once()
+                        //->with($query['statement'], $query['parameters'])
+                        ->andReturn($result);
+        //$this->connection->shouldReceive('insert')
+        //                 ->once()
+        //                 ->andReturn($result);
+        //$result->shouldReceive('getRecord')->andReturn($node);
+        $this->assertEquals($id, $this->builder->insertGetId($values));
 
-        foreach ($values as $key => $value) {
-            $node->shouldReceive('setProperty')->once()->with($key, $value);
-        }
+        //$node = M::mock(\GraphAware\Common\Type\Node::class);
+        //
+        //$this->neoClient->shouldReceive('makeNode')->once()->andReturn($node);
+        //$this->neoClient->shouldReceive('makeLabel')->once()->andReturn($label);
+        //
+        //foreach ($values as $key => $value) {
+        //    $node->shouldReceive('setProperty')->once()->with($key, $value);
+        //}
 
-        // node should save
-        $node->shouldReceive('save')->once();
-        // get the node id
-        $node->shouldReceive('getId')->once()->andReturn(9);
-        // add the labels
-        $node->shouldReceive('addLabels')->once()->with(M::type('array'));
-
-        $this->builder->insertGetId($values);
+        //// node should save
+        //$node->shouldReceive('save')->once();
+        //// get the node id
+        //$node->shouldReceive('getId')->once()->andReturn(9);
+        //// add the labels
+        //$node->shouldReceive('addLabels')->once()->with(M::type('array'));
+        //
+        //$this->builder->insertGetId($values);
     }
 
     public function testTransformingQueryToCypher()
@@ -296,7 +329,7 @@ class QueryBuilderTest extends TestCase
 
     public function setupCacheTestQuery($cache, $driver)
     {
-        $connection = m::mock('Vinelab\NeoEloquent\Connection');
+        $connection = m::mock(\Vinelab\NeoEloquent\Connection::class);
         $connection->shouldReceive('getClient')->once()->andReturn(M::mock('Everyman\Neo4j\Client'));
         $connection->shouldReceive('getName')->andReturn('default');
         $connection->shouldReceive('getCacheManager')->once()->andReturn($cache);
@@ -314,8 +347,8 @@ class QueryBuilderTest extends TestCase
 
     protected function getBuilder()
     {
-        $connection = M::mock('Vinelab\NeoEloquent\Connection');
-        $client     = M::mock('Everyman\Neo4j\Client');
+        $connection = M::mock(\Vinelab\NeoEloquent\Connection::class);
+        $client = M::mock('Everyman\Neo4j\Client');
         $connection->shouldReceive('getClient')->once()->andReturn($client);
         $grammar = new CypherGrammar();
 

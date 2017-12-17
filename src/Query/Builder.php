@@ -3,6 +3,7 @@
 use Closure;
 use DateTime;
 use Carbon\Carbon;
+use GraphAware\Common\Result\Result;
 use Vinelab\NeoEloquent\Connection;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Eloquent\Collection;
@@ -110,26 +111,38 @@ class Builder extends IlluminateQueryBuilder
      */
     public function insertGetId(array $values, $sequence = null)
     {
-        // create a neo4j Node
-        $node = $this->client->makeNode();
+        $cypher = $this->grammar->compileCreate($this, $values);
 
-        // set its properties
-        foreach ($values as $key => $value) {
-            $value = $this->formatValue($value);
+        $bindings = $this->getBindingsMergedWithValues($values);
 
-            $node->setProperty($key, $value);
+        $results = $this->connection->insert($cypher, $bindings);
+
+        if ($results instanceof Result) {
+            return $results->getRecord()->identity();
         }
 
-        // save the node
-        $node->save();
+        return null;
 
-        // get the saved node id
-        $id = $node->getId();
-
-        // set the labels
-        $node->addLabels(array_map([$this, 'makeLabel'], $this->from));
-
-        return $id;
+        //// create a neo4j Node
+        //$node = $this->client->makeNode();
+        //
+        //// set its properties
+        //foreach ($values as $key => $value) {
+        //    $value = $this->formatValue($value);
+        //
+        //    $node->setProperty($key, $value);
+        //}
+        //
+        //// save the node
+        //$node->save();
+        //
+        //// get the saved node id
+        //$id = $node->getId();
+        //
+        //// set the labels
+        //$node->addLabels(array_map([$this, 'makeLabel'], $this->from));
+        //
+        //return $id;
     }
 
     /**

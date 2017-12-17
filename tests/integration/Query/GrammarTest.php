@@ -11,12 +11,15 @@ use Vinelab\NeoEloquent\Tests\TestCase;
 
 class GrammarTest extends TestCase
 {
+    protected $grammar;
+
+    protected $processor;
 
     public function setUp()
     {
         parent::setUp();
 
-        $this->grammar   = new Grammar();
+        $this->grammar = new Grammar();
         $this->processor = new Processor();
     }
 
@@ -41,7 +44,7 @@ class GrammarTest extends TestCase
 
     public function testGettingIdParameterWithQueryBuilder()
     {
-        $query       = M::mock('Vinelab\NeoEloquent\Query\Builder');
+        $query = M::mock(\Vinelab\NeoEloquent\Query\Builder::class);
         $query->from = 'user';
         $this->grammar->setQuery($query);
         $this->assertEquals('{iduser}', $this->grammar->parameter('id'));
@@ -49,7 +52,7 @@ class GrammarTest extends TestCase
         $query->from = 'post';
         $this->assertEquals('{idpost}', $this->grammar->parameter('id'));
 
-        $anotherQuery       = M::mock('Vinelab\NeoEloquent\Query\Builder');
+        $anotherQuery = M::mock(\Vinelab\NeoEloquent\Query\Builder::class);
         $anotherQuery->from = 'crawler';
         $this->grammar->setQuery($anotherQuery);
         $this->assertEquals('{idcrawler}', $this->grammar->parameter('id'));
@@ -97,7 +100,7 @@ class GrammarTest extends TestCase
 
     public function testWrappingValue()
     {
-        $mConnection = M::mock('Vinelab\NeoEloquent\Connection');
+        $mConnection = M::mock(\Vinelab\NeoEloquent\Connection::class);
         $mConnection->shouldReceive('getClient');
         $query = new Builder($mConnection, $this->grammar, $this->processor);
 
@@ -135,7 +138,7 @@ class GrammarTest extends TestCase
         $this->assertEquals('idn', $this->grammar->getIdReplacement('id'));
         $this->assertEquals('iduser', $this->grammar->getIdReplacement('id(user)'));
 
-        $query       = M::mock('Vinelab\NeoEloquent\Query\Builder');
+        $query = M::mock(\Vinelab\NeoEloquent\Query\Builder::class);
         $query->from = 'cola';
         $this->grammar->setQuery($query);
 

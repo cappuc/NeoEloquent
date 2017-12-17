@@ -1,5 +1,4 @@
 <?php
-
 namespace Vinelab\NeoEloquent\Tests\Functional\Relations\HasMany;
 
 use Mockery as M;
@@ -47,9 +46,9 @@ class HasManyRelationTest extends TestCase
 
     public function testSavingSingleAndDynamicLoading()
     {
-        $author     = Author::create(['name' => 'George R. R. Martin']);
-        $got        = new Book(['title' => 'A Game of Thrones', 'pages' => '704', 'release_date' => 'August 1996']);
-        $cok        = new Book(['title' => 'A Clash of Kings', 'pages' => '768', 'release_date' => 'February 1999']);
+        $author = Author::create(['name' => 'George R. R. Martin']);
+        $got = new Book(['title' => 'A Game of Thrones', 'pages' => '704', 'release_date' => 'August 1996']);
+        $cok = new Book(['title' => 'A Clash of Kings', 'pages' => '768', 'release_date' => 'February 1999']);
         $writtenGot = $author->books()->save($got, ['ratings' => '123']);
         $writtenCok = $author->books()->save($cok, ['chapters' => 70]);
 
@@ -83,23 +82,23 @@ class HasManyRelationTest extends TestCase
 
         $novel = [
             new Book([
-                'title'        => 'A Game of Thrones',
-                'pages'        => 704,
+                'title' => 'A Game of Thrones',
+                'pages' => 704,
                 'release_date' => 'August 1996'
             ]),
             new Book([
-                'title'        => 'A Clash of Kings',
-                'pages'        => 768,
+                'title' => 'A Clash of Kings',
+                'pages' => 768,
                 'release_date' => 'February 1999'
             ]),
             new Book([
-                'title'        => 'A Storm of Swords',
-                'pages'        => 992,
+                'title' => 'A Storm of Swords',
+                'pages' => 992,
                 'release_date' => 'November 2000'
             ]),
             new Book([
-                'title'        => 'A Feast for Crows',
-                'pages'        => 753,
+                'title' => 'A Feast for Crows',
+                'pages' => 753,
                 'release_date' => 'November 2005'
             ])
         ];
@@ -126,23 +125,23 @@ class HasManyRelationTest extends TestCase
 
         $novel = [
             [
-                'title'        => 'A Game of Thrones',
-                'pages'        => 704,
+                'title' => 'A Game of Thrones',
+                'pages' => 704,
                 'release_date' => 'August 1996'
             ],
             [
-                'title'        => 'A Clash of Kings',
-                'pages'        => 768,
+                'title' => 'A Clash of Kings',
+                'pages' => 768,
                 'release_date' => 'February 1999'
             ],
             [
-                'title'        => 'A Storm of Swords',
-                'pages'        => 992,
+                'title' => 'A Storm of Swords',
+                'pages' => 992,
                 'release_date' => 'November 2000'
             ],
             [
-                'title'        => 'A Feast for Crows',
-                'pages'        => 753,
+                'title' => 'A Feast for Crows',
+                'pages' => 753,
                 'release_date' => 'November 2005'
             ]
         ];
@@ -166,23 +165,23 @@ class HasManyRelationTest extends TestCase
 
         $novel = [
             [
-                'title'        => 'A Game of Thrones',
-                'pages'        => 704,
+                'title' => 'A Game of Thrones',
+                'pages' => 704,
                 'release_date' => 'August 1996'
             ],
             [
-                'title'        => 'A Clash of Kings',
-                'pages'        => 768,
+                'title' => 'A Clash of Kings',
+                'pages' => 768,
                 'release_date' => 'February 1999'
             ],
             [
-                'title'        => 'A Storm of Swords',
-                'pages'        => 992,
+                'title' => 'A Storm of Swords',
+                'pages' => 992,
                 'release_date' => 'November 2000'
             ],
             [
-                'title'        => 'A Feast for Crows',
-                'pages'        => 753,
+                'title' => 'A Feast for Crows',
+                'pages' => 753,
                 'release_date' => 'November 2005'
             ]
         ];
@@ -206,23 +205,23 @@ class HasManyRelationTest extends TestCase
 
         $novel = [
             new Book([
-                'title'        => 'A Game of Thrones',
-                'pages'        => 704,
+                'title' => 'A Game of Thrones',
+                'pages' => 704,
                 'release_date' => 'August 1996'
             ]),
             new Book([
-                'title'        => 'A Clash of Kings',
-                'pages'        => 768,
+                'title' => 'A Clash of Kings',
+                'pages' => 768,
                 'release_date' => 'February 1999'
             ]),
             new Book([
-                'title'        => 'A Storm of Swords',
-                'pages'        => 992,
+                'title' => 'A Storm of Swords',
+                'pages' => 992,
                 'release_date' => 'November 2000'
             ]),
             new Book([
-                'title'        => 'A Feast for Crows',
-                'pages'        => 753,
+                'title' => 'A Feast for Crows',
+                'pages' => 753,
                 'release_date' => 'November 2005'
             ])
         ];
@@ -230,7 +229,7 @@ class HasManyRelationTest extends TestCase
         $edges = $author->books()->saveMany($novel);
         $this->assertCount(count($novel), $edges->toArray());
 
-        $author    = Author::with('books')->find($author->id);
+        $author = Author::with('books')->find($author->id);
         $relations = $author->getRelations();
 
         $this->assertArrayHasKey('books', $relations);
@@ -256,23 +255,23 @@ class HasManyRelationTest extends TestCase
 
         $novel = [
             new Book([
-                'title'        => 'A Game of Thrones',
-                'pages'        => 704,
+                'title' => 'A Game of Thrones',
+                'pages' => 704,
                 'release_date' => 'August 1996'
             ]),
             new Book([
-                'title'        => 'A Clash of Kings',
-                'pages'        => 768,
+                'title' => 'A Clash of Kings',
+                'pages' => 768,
                 'release_date' => 'February 1999'
             ]),
             new Book([
-                'title'        => 'A Storm of Swords',
-                'pages'        => 992,
+                'title' => 'A Storm of Swords',
+                'pages' => 992,
                 'release_date' => 'November 2000'
             ]),
             new Book([
-                'title'        => 'A Feast for Crows',
-                'pages'        => 753,
+                'title' => 'A Feast for Crows',
+                'pages' => 753,
                 'release_date' => 'November 2005'
             ])
         ];
@@ -289,9 +288,9 @@ class HasManyRelationTest extends TestCase
     public function testSyncingModelIds()
     {
         $author = Author::create(['name' => 'George R.R. Martin']);
-        $bk     = Book::create(['title' => 'foo']);
-        $got    = Book::create(['title' => 'A Game of Thrones', 'pages' => '704', 'release_date' => 'August 1996']);
-        $cok    = Book::create(['title' => 'A Clash of Kings', 'pages' => '768', 'release_date' => 'February 1999']);
+        $bk = Book::create(['title' => 'foo']);
+        $got = Book::create(['title' => 'A Game of Thrones', 'pages' => '704', 'release_date' => 'August 1996']);
+        $cok = Book::create(['title' => 'A Clash of Kings', 'pages' => '768', 'release_date' => 'February 1999']);
 
         $author->books()->attach($bk);
 
@@ -311,9 +310,9 @@ class HasManyRelationTest extends TestCase
     public function testSyncingWithIdsUpdatesModels()
     {
         $author = Author::create(['name' => 'George R.R. Martin']);
-        $got    = Book::create(['title' => 'A Game of Thrones', 'pages' => '704', 'release_date' => 'August 1996']);
-        $cok    = Book::create(['title' => 'A Clash of Kings', 'pages' => '768', 'release_date' => 'February 1999']);
-        $sos    = Book::create(['title' => 'A Storm of Swords', 'pages' => 992, 'release_date' => 'November 2000']);
+        $got = Book::create(['title' => 'A Game of Thrones', 'pages' => '704', 'release_date' => 'August 1996']);
+        $cok = Book::create(['title' => 'A Clash of Kings', 'pages' => '768', 'release_date' => 'February 1999']);
+        $sos = Book::create(['title' => 'A Storm of Swords', 'pages' => 992, 'release_date' => 'November 2000']);
 
         $author->books()->attach($got);
 
@@ -333,9 +332,9 @@ class HasManyRelationTest extends TestCase
     public function testSyncingWithAttributes()
     {
         $author = Author::create(['name' => 'George R.R. Martin']);
-        $got    = Book::create(['title' => 'A Game of Thrones', 'pages' => '704', 'release_date' => 'August 1996']);
-        $cok    = Book::create(['title' => 'A Clash of Kings', 'pages' => '768', 'release_date' => 'February 1999']);
-        $sos    = Book::create(['title' => 'A Storm of Swords', 'pages' => 992, 'release_date' => 'November 2000']);
+        $got = Book::create(['title' => 'A Game of Thrones', 'pages' => '704', 'release_date' => 'August 1996']);
+        $cok = Book::create(['title' => 'A Clash of Kings', 'pages' => '768', 'release_date' => 'February 1999']);
+        $sos = Book::create(['title' => 'A Storm of Swords', 'pages' => 992, 'release_date' => 'November 2000']);
 
         $author->books()->attach($got);
 
@@ -351,7 +350,7 @@ class HasManyRelationTest extends TestCase
             return $edge->getRelated()->getKey();
         }, $edges->toArray());
 
-        $count = array_count_values((array) $got->id);
+        $count = array_count_values((array)$got->id);
 
         $this->assertEquals(1, $count[$got->id]);
         $this->assertTrue(in_array($cok->id, $edgesIds));
