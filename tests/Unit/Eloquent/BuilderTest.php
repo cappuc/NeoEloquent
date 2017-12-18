@@ -2,11 +2,12 @@
 
 namespace Vinelab\NeoEloquent\Tests\Unit\Eloquent;
 
-use Mockery as M;
+use GraphAware\Neo4j\Client\Formatter\Result;
 use Illuminate\Support\Collection;
-use Vinelab\NeoEloquent\Tests\TestCase;
+use Mockery as M;
 use Vinelab\NeoEloquent\Eloquent\Builder;
 use Vinelab\NeoEloquent\Query\Grammars\CypherGrammar;
+use Vinelab\NeoEloquent\Tests\TestCase;
 
 class EloquentBuilderTest extends TestCase
 {
@@ -36,6 +37,7 @@ class EloquentBuilderTest extends TestCase
         $builder->shouldReceive('first')->with(['column'])->andReturn('baz');
 
         $result = $builder->find('bar', ['column']);
+
         $this->assertEquals('baz', $result);
     }
 
@@ -48,7 +50,8 @@ class EloquentBuilderTest extends TestCase
         $builder->setModel($this->getMockModel());
         $builder->getQuery()->shouldReceive('where')->once()->with('foo', '=', 'bar');
         $builder->shouldReceive('first')->with(['column'])->andReturn(null);
-        $result = $builder->findOrFail('bar', ['column']);
+
+        $builder->findOrFail('bar', ['column']);
     }
 
     /**
@@ -60,7 +63,8 @@ class EloquentBuilderTest extends TestCase
         $builder->setModel($this->getMockModel());
         $builder->getQuery()->shouldReceive('whereIn')->once()->with('foo', [1, 2]);
         $builder->shouldReceive('get')->with(['column'])->andReturn(new Collection([1]));
-        $result = $builder->findOrFail([1, 2], ['column']);
+
+        $builder->findOrFail([1, 2], ['column']);
     }
 
     /**
@@ -71,7 +75,8 @@ class EloquentBuilderTest extends TestCase
         $builder = m::mock('Vinelab\NeoEloquent\Eloquent\Builder[first]', [$this->getMockQueryBuilder()]);
         $builder->setModel($this->getMockModel());
         $builder->shouldReceive('first')->with(['column'])->andReturn(null);
-        $result = $builder->firstOrFail(['column']);
+
+        $builder->firstOrFail(['column']);
     }
 
     public function testFindWithMany()
@@ -89,7 +94,7 @@ class EloquentBuilderTest extends TestCase
     {
         $builder = m::mock('Vinelab\NeoEloquent\Eloquent\Builder[get,take]', [$this->getMockQueryBuilder()]);
         $builder->shouldReceive('take')->with(1)->andReturn($builder);
-        $builder->shouldReceive('get')->with(['*'])->andReturn(new Collection(['bar']));
+        $builder->shouldReceive('get')->with(['*'])->andReturn(collect(['bar']));
 
         $result = $builder->first();
         $this->assertEquals('bar', $result);
@@ -101,10 +106,7 @@ class EloquentBuilderTest extends TestCase
         $builder->shouldReceive('getModels')->with(['foo'])->andReturn(['bar']);
         $builder->shouldReceive('eagerLoadRelations')->with(['bar'])->andReturn(['bar', 'baz']);
         $builder->setModel($this->getMockModel());
-        $builder->getModel()->shouldReceive('newCollection')->with(['bar', 'baz'])->andReturn(new Collection([
-            'bar',
-            'baz'
-        ]));
+        $builder->getModel()->shouldReceive('newCollection')->with(['bar', 'baz'])->andReturn(collect(['bar', 'baz']));
 
         $results = $builder->get(['foo']);
         $this->assertEquals(['bar', 'baz'], $results->all());
@@ -116,7 +118,7 @@ class EloquentBuilderTest extends TestCase
         $builder->shouldReceive('getModels')->with(['foo'])->andReturn([]);
         $builder->shouldReceive('eagerLoadRelations')->never();
         $builder->setModel($this->getMockModel());
-        $builder->getModel()->shouldReceive('newCollection')->with([])->andReturn(new Collection([]));
+        $builder->getModel()->shouldReceive('newCollection')->with([])->andReturn(collect());
 
         $results = $builder->get(['foo']);
         $this->assertEquals([], $results->all());
@@ -126,11 +128,11 @@ class EloquentBuilderTest extends TestCase
     {
         $queryBuilder = $this->getMockQueryBuilder();
         $queryBuilder->shouldReceive('from');
-        $builder         = m::mock('Vinelab\NeoEloquent\Eloquent\Builder[first]', [$queryBuilder]);
-        $mockModel       = m::mock('Illuminate\Database\Eloquent\Model')->makePartial();
+        $builder = m::mock('Vinelab\NeoEloquent\Eloquent\Builder[first]', [$queryBuilder]);
+        $mockModel = m::mock('Illuminate\Database\Eloquent\Model')->makePartial();
         $mockModel->name = 'foo';
         $builder->shouldReceive('first')->with(['name'])->andReturn($mockModel);
-        $builder->getQuery()->shouldReceive('pluck')->with('name', '')->andReturn(new Collection(['bar', 'baz']));
+        $builder->getQuery()->shouldReceive('pluck')->with('name', '')->andReturn(collect(['bar', 'baz']));
         $builder->setModel($mockModel);
         $builder->getModel()->shouldReceive('hasGetMutator')->with('name')->andReturn(true);
         $builder->getModel()
@@ -182,19 +184,22 @@ class EloquentBuilderTest extends TestCase
 
     public function testGetModelsProperlyHydratesModels()
     {
-        $query          = $this->getMockQueryBuilder();
+        $query = $this->getMockQueryBuilder();
         $query->columns = ['n.name', 'n.age'];
 
+        $client = $this->getConnectionWithConfig('neo4j')->getClient();
         $builder = M::mock('Vinelab\NeoEloquent\Eloquent\Builder[get]', [$query]);
 
-        $records[] = ['id' => 1902, 'name' => 'taylor', 'age' => 26];
-        $records[] = ['id' => 6252, 'name' => 'dayle', 'age' => 28];
+        collect([
+            ['id' => 1902, 'name' => 'taylor', 'age' => 26],
+            ['id' => 6252, 'name' => 'dayle', 'age' => 28]
+        ])->each(function ($record) use ($client) {
+            $client->run("CREATE (n {name:'{$record['name']}', age: {$record['age']}})");
+        });
 
-        $resultSet = $this->createNodeResultSet($records, ['n.name', 'n.age']);
+        $resultSet = $client->run("MATCH (n) RETURN n");
 
         $builder->getQuery()->shouldReceive('get')->once()->with(['foo'])->andReturn($resultSet);
-        $grammar = M::mock('Vinelab\NeoEloquent\Query\Grammars\CypherGrammar')->makePartial();
-        $builder->getQuery()->shouldReceive('getGrammar')->andReturn($grammar);
 
         $model = M::mock('Vinelab\NeoEloquent\Eloquent\Model[getTable,getConnectionName,newInstance]');
         $model->shouldReceive('getTable')->once()->andReturn('foo_table');
@@ -218,9 +223,9 @@ class EloquentBuilderTest extends TestCase
     public function testEagerLoadRelationsLoadTopLevelRelationships()
     {
         $builder = m::mock('Vinelab\NeoEloquent\Eloquent\Builder[eagerLoadRelation]', [$this->getMockQueryBuilder()]);
-        $nop1    = function () {
+        $nop1 = function () {
         };
-        $nop2    = function () {
+        $nop2 = function () {
         };
         $builder->setEagerLoads(['foo' => $nop1, 'foo.bar' => $nop2]);
         $builder->shouldAllowMockingProtectedMethods()
@@ -355,7 +360,7 @@ class EloquentBuilderTest extends TestCase
     {
         $this->markTestIncomplete('Getting error: Static method Mockery_1_Vinelab_NeoEloquent_Eloquent_Model::resolveConnection() does not exist on this mock object');
 
-        $nestedQuery    = m::mock('Vinelab\NeoEloquent\Eloquent\Builder');
+        $nestedQuery = m::mock('Vinelab\NeoEloquent\Eloquent\Builder');
         $nestedRawQuery = $this->getMockQueryBuilder();
         $nestedQuery->shouldReceive('getQuery')->once()->andReturn($nestedRawQuery);
         $model = $this->getMockModel()->makePartial();
@@ -604,95 +609,95 @@ class EloquentBuilderTest extends TestCase
         $this->assertFalse($this->builder->isRelationship(['user', 'user.name', 'account.id']));
     }
 
-    /**
-     *
-     *     Utility methods down below this area
-     *
-     */
-
-    /**
-     * Create a new ResultSet out of an array of properties and values
-     *
-     * @param  array $data The values you want returned could be of the form
-     *             [ [name => something, username => here] ]
-     *             or specify the attributes straight in the array
-     * @param  array $properties The expected properties (columns)
-     * @return  \Everyman\Neo4j\Query\ResultSet
-     */
-    public function createNodeResultSet($data = [], $properties = [])
-    {
-        $c = $this->getConnectionWithConfig('default');
-
-        $rows = [];
-
-        if (is_array(reset($data))) {
-            foreach ($data as $index => $node) {
-                $rows[] = $this->createRowWithNodeAtIndex($index, $node);
-            }
-        } else {
-
-            $rows[] = $this->createRowWithNodeAtIndex(0, $data);
-        }
-
-        // the ResultSet $result part
-        $result = [
-            'data'    => $rows,
-            'columns' => $properties
-        ];
-
-        // create the result set
-        return new \Everyman\Neo4j\Query\ResultSet($c->getClient(), $result);
-    }
-
-    /**
-     * Get a row with a Node inside of it having $data as properties
-     *
-     * @param  integer $index The index of the node in the row
-     * @param  array $data
-     * @return  \Everyman\Neo4j\Query\Row
-     */
-    public function createRowWithNodeAtIndex($index, array $data)
-    {
-        // create the result Node containing the properties and their values
-        $node = M::mock('Everyman\Neo4j\Node');
-
-        // the Node id is never returned with the properties so in case
-        // that is one of the data properties we need to remove it
-        // and add it to when requested through getId()
-        if (isset($data['id'])) {
-            $node->shouldReceive('getId')->once()->andReturn($data['id']);
-
-            unset($data['id']);
-        }
-
-        $node->shouldReceive('getProperties')->once()->andReturn($data);
-
-        // create the result row that should contain the Node
-        $row = M::mock('Everyman\Neo4j\Query\Row');
-        $row->shouldReceive('offsetGet')->andReturn($node);
-
-        return $row;
-    }
-
-    public function createRowWithPropertiesAtIndex($index, array $properties)
-    {
-        $row = M::mock('Everyman\Neo4j\Query\Row');
-        // $row->shouldReceive('offsetGet')->with($index)->andReturn($properties);
-
-        foreach ($properties as $key => $value) {
-            // prepare the row's offsetGet to rerturn the desired value when asked
-            // by prepending the key with an n. representing the node in the Cypher query.
-            $row->shouldReceive('offsetGet')
-                ->with("n.{$key}")
-                ->andReturn($properties[$key]);
-
-            $row->shouldReceive('offsetGet')
-                ->with("{$key}")
-                ->andReturn($properties[$key]);
-        }
-
-        return $row;
-    }
+    ///**
+    // *
+    // *     Utility methods down below this area
+    // *
+    // */
+    //
+    ///**
+    // * Create a new ResultSet out of an array of properties and values
+    // *
+    // * @param  array $data The values you want returned could be of the form
+    // *             [ [name => something, username => here] ]
+    // *             or specify the attributes straight in the array
+    // * @param  array $properties The expected properties (columns)
+    // * @return  \GraphAware\Common\Result\Result
+    // */
+    //public function createNodeResultSet($data = [], $properties = [])
+    //{
+    //    $c = $this->getConnectionWithConfig('default');
+    //
+    //    $rows = [];
+    //
+    //    if (is_array(reset($data))) {
+    //        foreach ($data as $index => $node) {
+    //            $rows[] = $this->createRowWithNodeAtIndex($index, $node);
+    //        }
+    //    } else {
+    //
+    //        $rows[] = $this->createRowWithNodeAtIndex(0, $data);
+    //    }
+    //
+    //    // the ResultSet $result part
+    //    $result = [
+    //        'data'    => $rows,
+    //        'columns' => $properties
+    //    ];
+    //
+    //    // create the result set
+    //    return new Result(new Statement());
+    //}
+    //
+    ///**
+    // * Get a row with a Node inside of it having $data as properties
+    // *
+    // * @param  integer $index The index of the node in the row
+    // * @param  array $data
+    // * @return  \Everyman\Neo4j\Query\Row
+    // */
+    //public function createRowWithNodeAtIndex($index, array $data)
+    //{
+    //    // create the result Node containing the properties and their values
+    //    $node = M::mock('Everyman\Neo4j\Node');
+    //
+    //    // the Node id is never returned with the properties so in case
+    //    // that is one of the data properties we need to remove it
+    //    // and add it to when requested through getId()
+    //    if (isset($data['id'])) {
+    //        $node->shouldReceive('getId')->once()->andReturn($data['id']);
+    //
+    //        unset($data['id']);
+    //    }
+    //
+    //    $node->shouldReceive('getProperties')->once()->andReturn($data);
+    //
+    //    // create the result row that should contain the Node
+    //    $row = M::mock('Everyman\Neo4j\Query\Row');
+    //    $row->shouldReceive('offsetGet')->andReturn($node);
+    //
+    //    return $row;
+    //}
+    //
+    //public function createRowWithPropertiesAtIndex($index, array $properties)
+    //{
+    //    $row = M::mock('Everyman\Neo4j\Query\Row');
+    //    // $row->shouldReceive('offsetGet')->with($index)->andReturn($properties);
+    //
+    //    foreach ($properties as $key => $value) {
+    //        // prepare the row's offsetGet to rerturn the desired value when asked
+    //        // by prepending the key with an n. representing the node in the Cypher query.
+    //        $row->shouldReceive('offsetGet')
+    //            ->with("n.{$key}")
+    //            ->andReturn($properties[$key]);
+    //
+    //        $row->shouldReceive('offsetGet')
+    //            ->with("{$key}")
+    //            ->andReturn($properties[$key]);
+    //    }
+    //
+    //    return $row;
+    //}
 
     protected function getMockModel()
     {
@@ -709,7 +714,9 @@ class EloquentBuilderTest extends TestCase
         $query = m::mock('Vinelab\NeoEloquent\Query\Builder');
         $query->shouldReceive('from')->with('foo_table');
         $query->shouldReceive('modelAsNode')->andReturn('n');
-        echo implode(", ", get_class_methods($query)), "\n";
+        $query->shouldReceive('getGrammar')->andReturn(new CypherGrammar());
+
+        //echo implode(", ", get_class_methods($query)), "\n";
 
         return $query;
     }
