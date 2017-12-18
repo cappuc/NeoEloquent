@@ -36,7 +36,7 @@ class ModelTest extends TestCase
         $label = $m->getDefaultNodeLabel();
 
         // By default the label should be the concatenation of the class's namespace
-        $this->assertEquals('VinelabNeoEloquentTestsIntegrationEloquentModel', reset($label));
+        $this->assertEquals('VinelabNeoEloquentTestsUnitEloquentModel', reset($label));
     }
 
     public function testOverriddenNodeLabel()
@@ -98,56 +98,35 @@ class ModelTest extends TestCase
     {
         //create a new model object
         $m = new Labeled();
-        $m->setLabel(['User', 'Fan']); //set some labels
+        $m->setLabel(['User', 'Fan']);
         $m->save();
-        //get the node id, we need it to verify if the label is actually added in graph
-        $id = $m->id;
 
         //add the label
         $m->addLabels(['Superuniqelabel1']);
 
-        //get the Node for $id using Everyman lib
-        $connection = $this->getConnectionWithConfig('neo4j');
-        $client     = $connection->getClient();
-        $node       = $client->getNode($id);
+        //get the Node for $id
+        $client = $this->getConnectionWithConfig('neo4j')->getClient();
+        $node = $client->run("MATCH (n) WHERE id(n) = {$m->id} RETURN n")->getRecord()->value('n');
 
         $this->assertNotNull($node); //it should exist
-
-        $labels = $node->getLabels(); //get labels as array on the Everyman nodes
-
-        $strLabels = [];
-        foreach ($labels as $lbl) {
-            $strLabels[] = $lbl->getName();
-        }
-
-        $this->assertTrue(in_array('Superuniqelabel1', $strLabels));
+        $this->assertTrue(in_array('Superuniqelabel1', $node->labels()));
     }
 
     public function testDropLabels()
     {
         //create a new model object
         $m = new Labeled();
-        $m->setLabel(['User', 'Fan', 'Superuniqelabel2']); //set some labels
+        $m->setLabel(['User', 'Fan', 'Superuniqelabel2']);
         $m->save();
-        //get the node id, we need it to verify if the label is actually added in graph
-        $id = $m->id;
 
         //drop the label
         $m->dropLabels(['Superuniqelabel2']);
 
-        //get the Node for $id using Everyman lib
-        $connection = $this->getConnectionWithConfig('neo4j');
-        $client     = $connection->getClient();
-        $node       = $client->getNode($id);
+        //get the Node for $id
+        $client = $this->getConnectionWithConfig('neo4j')->getClient();
+        $node = $client->run("MATCH (n) WHERE id(n) = {$m->id} RETURN n")->getRecord()->value('n');
 
         $this->assertNotNull($node); //it should exist
-
-        $labels    = $node->getLabels(); //get labels as array on the Everyman nodes
-        $strLabels = [];
-        foreach ($labels as $lbl) {
-            $strLabels[] = $lbl->getName();
-        }
-
-        $this->assertFalse(in_array('Superuniqelabel2', $strLabels));
+        $this->assertFalse(in_array('Superuniqelabel1', $node->labels()));
     }
 }

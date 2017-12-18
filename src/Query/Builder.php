@@ -99,7 +99,6 @@ class Builder extends BaseQueryBuilder
      * @param  string $sequence
      *
      * @return int
-     * @throws \Vinelab\NeoEloquent\QueryException
      */
     public function insertGetId(array $values, $sequence = null)
     {
@@ -117,7 +116,7 @@ class Builder extends BaseQueryBuilder
 
         $cypher = $this->grammar->compileInsertGetId($this, $values, $sequence);
 
-        $values = $this->cleanBindings($values);
+        //$values = $this->cleanBindings($values);
 
         return $this->processor->processInsertGetId($this, $cypher, $values, $sequence);
     }
@@ -835,23 +834,24 @@ class Builder extends BaseQueryBuilder
 //
 //        return $value;
 //    }
-//
-//    /*
-//     * Add/Drop labels
-//     * @param $labels array array of strings(labels)
-//     * @param $operation string 'add' or 'drop'
-//     * @return bool true if success, otherwise false
-//     */
-//    public function updateLabels($labels, $operation = 'add')
-//    {
-//
-//        $cypher = $this->grammar->compileUpdateLabels($this, $labels, $operation);
-//
-//        $updated = $this->connection->update($cypher, $this->getBindings());
-//
-//        return (isset($updated[0]) && isset($updated[0][0])) ? $updated[0][0] : 0;
-//    }
-//
+
+    /*
+     * Add/Drop labels
+     * @param $labels array array of strings(labels)
+     * @param $operation string 'add' or 'drop'
+     * @return bool true if success, otherwise false
+     */
+    public function updateLabels($labels, $operation = 'add')
+    {
+        $cypher = $this->grammar->compileUpdateLabels($this, $labels, $operation);
+
+        //dd($cypher, $this->getBindings());
+
+        $updated = $this->connection->update($cypher, $this->getBindings());
+
+        return (isset($updated[0]) && isset($updated[0][0])) ? $updated[0][0] : 0;
+    }
+
 //    /**
 //     * Execute the query as a "select" statement.
 //     *

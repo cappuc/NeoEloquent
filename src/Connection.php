@@ -11,6 +11,7 @@ use GraphAware\Neo4j\Client\ClientBuilder;
 use Illuminate\Database\Connection as BaseConnection;
 use Vinelab\NeoEloquent\Query\Builder as QueryBuilder;
 use Vinelab\NeoEloquent\Query\Grammars\CypherGrammar as QueryGrammar;
+use Vinelab\NeoEloquent\Query\Processors\Processor;
 
 class Connection extends BaseConnection
 {
@@ -71,7 +72,7 @@ class Connection extends BaseConnection
         // which are both very important parts of the database abstractions
         // so we initialize these to their default values while starting.
         $this->useDefaultQueryGrammar();
-        //$this->useDefaultPostProcessor();
+        $this->useDefaultPostProcessor();
     }
 
     /**
@@ -180,6 +181,26 @@ class Connection extends BaseConnection
     }
 
     /**
+     * Get the default query grammar instance.
+     *
+     * @return \Vinelab\NeoEloquent\Query\Grammars\CypherGrammar
+     */
+    protected function getDefaultQueryGrammar()
+    {
+        return new QueryGrammar();
+    }
+
+    /**
+     * Get the default post processor instance.
+     *
+     * @return \Vinelab\NeoEloquent\Query\Processors\Processor
+     */
+    protected function getDefaultPostProcessor()
+    {
+        return new Processor();
+    }
+
+    /**
      * Run a select statement against the database.
      *
      * @param  string $query
@@ -224,7 +245,7 @@ class Connection extends BaseConnection
      *
      * @param  string $query
      * @param  array $bindings
-     * @return \GraphAware\Common\Result\Result
+     * @return int
      * @throws \Vinelab\NeoEloquent\QueryException
      */
     public function affectingStatement($query, $bindings = [])
@@ -233,7 +254,7 @@ class Connection extends BaseConnection
 
         $this->recordsHaveBeenModified($result->summarize()->updateStatistics()->containsUpdates());
 
-        return $result->getRecord()->values()[0];
+        return $result->hasRecord() ? $result->getRecord()->values()[0] : 0;
     }
 
     /**
@@ -303,16 +324,6 @@ class Connection extends BaseConnection
         }
 
         return $prepared;
-    }
-
-    /**
-     * Get the default query grammar instance.
-     *
-     * @return \Vinelab\NeoEloquent\Query\Grammars\CypherGrammar
-     */
-    protected function getDefaultQueryGrammar()
-    {
-        return new QueryGrammar();
     }
 
     /**
