@@ -1,6 +1,6 @@
 <?php
 
-namespace Vinelab\NeoEloquent\Tests\Integration\Query;
+namespace Vinelab\NeoEloquent\Tests\Unit\Query;
 
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\Processors\Processor;

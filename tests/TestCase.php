@@ -3,9 +3,9 @@
 namespace Vinelab\NeoEloquent\Tests;
 
 use Mockery as M;
+use PHPUnit\Framework\TestCase as PHPUnit;
 use Vinelab\NeoEloquent\Connection;
 use Vinelab\NeoEloquent\Eloquent\Model;
-use PHPUnit\Framework\TestCase as PHPUnit;
 
 class Stub extends Model
 {
@@ -20,7 +20,7 @@ class TestCase extends PHPUnit
         parent::__construct();
 
         // load custom configuration file
-        $this->dbConfig = require 'config/database.php';
+        $this->dbConfig = require(__DIR__ . '/config/database.php');
     }
 
     public function setUp()
@@ -42,10 +42,10 @@ class TestCase extends PHPUnit
         parent::tearDown();
     }
 
-    public static function setUpBeforeClass()
-    {
-        date_default_timezone_set('Asia/Beirut');
-    }
+    //public static function setUpBeforeClass()
+    //{
+    //    date_default_timezone_set('Asia/Beirut');
+    //}
 
     /**
      * Get the connection with a given or the default configuration.
@@ -90,6 +90,7 @@ class TestCase extends PHPUnit
      * @param int $id
      *
      * @return \GraphAware\Neo4j\Client\Formatter\Type\Node
+     * @throws \GraphAware\Neo4j\Client\Exception\Neo4jExceptionInterface
      */
     protected function getNodeById($id)
     {
@@ -107,6 +108,7 @@ class TestCase extends PHPUnit
      * @param int $id
      *
      * @return array
+     * @throws \GraphAware\Neo4j\Client\Exception\Neo4jExceptionInterface
      */
     protected function getNodeLabels($id)
     {

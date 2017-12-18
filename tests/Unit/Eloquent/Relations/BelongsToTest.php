@@ -1,6 +1,6 @@
 <?php
 
-namespace Vinelab\NeoEloquent\Tests\Integration\Eloquent\Relations;
+namespace Vinelab\NeoEloquent\Tests\Unit\Eloquent\Relations;
 
 use Mockery as M;
 use Vinelab\NeoEloquent\Eloquent\Model;

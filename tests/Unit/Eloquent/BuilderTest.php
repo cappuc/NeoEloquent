@@ -1,6 +1,6 @@
 <?php
 
-namespace Vinelab\NeoEloquent\Tests\Integration\Eloquent;
+namespace Vinelab\NeoEloquent\Tests\Unit\Eloquent;
 
 use Mockery as M;
 use Illuminate\Support\Collection;

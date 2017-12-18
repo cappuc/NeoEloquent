@@ -1,8 +1,9 @@
 <?php
 
-namespace Vinelab\NeoEloquent\Tests;
+namespace Vinelab\NeoEloquent\Tests\Unit;
 
 use Mockery as M;
+use Vinelab\NeoEloquent\Tests\TestCase;
 
 class ConnectionTest extends TestCase
 {
