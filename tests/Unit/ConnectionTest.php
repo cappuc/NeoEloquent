@@ -308,11 +308,11 @@ class ConnectionTest extends TestCase
             'username'   => $this->user['username'],
         ];
 
-        $results = $c->affectingStatement($query, $bindings);
+        $result = $c->affectingStatement($query, $bindings);
 
-        $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
+        //$this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
-        $this->assertEquals(1, $results->getRecord()->value('count(n)'));
+        $this->assertEquals(1, $result);
 
         // Try to find the updated one and make sure it was updated successfully
         $query = 'MATCH (n:User) WHERE n.username = {username} RETURN n';
@@ -337,16 +337,16 @@ class ConnectionTest extends TestCase
             'RETURN count(n)';
 
         $bindings = [
-            ['type' => 'dev'],
-            ['updated_at' => '2014-05-11 13:37:15'],
-            ['username' => $this->user['username']],
+            'type' => 'dev',
+            'updated_at' => '2014-05-11 13:37:15',
+            'username' => $this->user['username'],
         ];
 
-        $results = $c->affectingStatement($query, $bindings);
+        $result = $c->affectingStatement($query, $bindings);
 
-        $this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
+        //$this->assertInstanceOf(\GraphAware\Common\Result\Result::class, $results);
 
-        $this->assertEquals(0, $results->getRecord()->value('count(n)'));
+        $this->assertEquals(0, $result);
     }
 
     public function testSettingDefaultCallsGetDefaultGrammar()

@@ -3,7 +3,8 @@
 use Closure;
 use Illuminate\Database\ConnectionInterface;
 
-class Builder {
+class Builder
+{
 
     /**
      * The database connection resolver.
@@ -20,7 +21,7 @@ class Builder {
     protected $resolver;
 
     /**
-     * @param  \Illuminate\Database\ConnectionInterface  $conn
+     * @param  \Illuminate\Database\ConnectionInterface $conn
      * @return void
      */
     public function __construct(ConnectionInterface $conn)
@@ -31,7 +32,7 @@ class Builder {
     /**
      * Fallback.
      *
-     * @param  string  $label
+     * @param  string $label
      * @return boolean
      * @throws RuntimeException
      */
@@ -53,8 +54,8 @@ you can do so by passing additional arguments to default migration command like:
     /**
      * Create a new data defintion on label schema.
      *
-     * @param  string   $label
-     * @param  Closure  $callback
+     * @param  string $label
+     * @param  Closure $callback
      * @return \Vinelab\NeoEloquent\Schema\Blueprint
      */
     public function label($label, Closure $callback)
@@ -67,7 +68,7 @@ you can do so by passing additional arguments to default migration command like:
     /**
      * Drop a label from the schema.
      *
-     * @param  string  $label
+     * @param  string $label
      * @return \Vinelab\NeoEloquent\Schema\Blueprint
      */
     public function drop($label)
@@ -82,7 +83,7 @@ you can do so by passing additional arguments to default migration command like:
     /**
      * Drop a label from the schema if it exists.
      *
-     * @param  string  $label
+     * @param  string $label
      * @return \Vinelab\NeoEloquent\Schema\Blueprint
      */
     public function dropIfExists($label)
@@ -97,7 +98,7 @@ you can do so by passing additional arguments to default migration command like:
     /**
      * Determine if the given label exists.
      *
-     * @param  string  $label
+     * @param  string $label
      * @return bool
      */
     public function hasLabel($label)
@@ -110,7 +111,7 @@ you can do so by passing additional arguments to default migration command like:
     /**
      * Determine if the given relation exists.
      *
-     * @param  string  $relation
+     * @param  string $relation
      * @return bool
      */
     public function hasRelation($relation)
@@ -123,8 +124,8 @@ you can do so by passing additional arguments to default migration command like:
     /**
      * Rename a label.
      *
-     * @param  string  $from
-     * @param  string  $to
+     * @param  string $from
+     * @param  string $to
      * @return \Vinelab\NeoEloquent\Schema\Blueprint|boolean
      */
     public function renameLabel($from, $to)
@@ -139,7 +140,7 @@ you can do so by passing additional arguments to default migration command like:
     /**
      * Execute the blueprint to modify the label.
      *
-     * @param  Blueprint  $blueprint
+     * @param  Blueprint $blueprint
      * @return void
      */
     protected function build(Blueprint $blueprint)
@@ -150,22 +151,18 @@ you can do so by passing additional arguments to default migration command like:
         );
     }
 
-
     /**
      * Create a new command set with a Closure.
      *
-     * @param  string   $label
-     * @param  Closure  $callback
+     * @param  string $label
+     * @param  Closure $callback
      * @return \Vinelab\NeoEloquent\Schema\Blueprint
      */
     protected function createBlueprint($label, Closure $callback = null)
     {
-        if (isset($this->resolver))
-        {
+        if (isset($this->resolver)) {
             return call_user_func($this->resolver, $label, $callback);
-        }
-        else
-        {
+        } else {
             return new Blueprint($label, $callback);
         }
     }
@@ -196,13 +193,12 @@ you can do so by passing additional arguments to default migration command like:
     /**
      * Set the Schema Blueprint resolver callback.
      *
-     * @param  \Closure  $resolver
+     * @param  \Closure $resolver
      * @return void
      */
     public function blueprintResolver(Closure $resolver)
     {
         $this->resolver = $resolver;
     }
-
 
 }

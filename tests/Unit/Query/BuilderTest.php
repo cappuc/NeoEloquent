@@ -2,10 +2,11 @@
 
 namespace Vinelab\NeoEloquent\Tests\Unit\Query;
 
-use Illuminate\Database\Query\Processors\Processor;
+use InvalidArgumentException;
 use Mockery as M;
 use Vinelab\NeoEloquent\Query\Builder;
 use Vinelab\NeoEloquent\Query\Grammars\CypherGrammar;
+use Vinelab\NeoEloquent\Query\Processors\Processor;
 use Vinelab\NeoEloquent\Tests\TestCase;
 
 class QueryBuilderTest extends TestCase
@@ -26,10 +27,11 @@ class QueryBuilderTest extends TestCase
 
         $this->grammar = M::mock(\Vinelab\NeoEloquent\Query\Grammars\CypherGrammar::class)->makePartial();
         $this->connection = M::mock(\Vinelab\NeoEloquent\Connection::class)->makePartial();
+        $this->neoClient = M::mock(\GraphAware\Neo4j\Client\Client::class);
         $this->processor = new Processor();
 
-        $this->neoClient = M::mock(\GraphAware\Neo4j\Client\Client::class);
         $this->connection->shouldReceive('getClient')->andReturn($this->neoClient);
+        $this->connection->shouldReceive('getQueryGrammar')->andReturn($this->grammar);
 
         $this->builder = new Builder($this->connection, $this->grammar, $this->processor);
     }
@@ -61,46 +63,13 @@ class QueryBuilderTest extends TestCase
             'power'  => 'Strong Fart Noises'
         ];
 
-        $query = [
-            'statement'  => 'CREATE (hero:`Hero`) SET hero.length = {length_create}, hero.height = {height_create}, hero.power = {power_create} RETURN hero',
-            'parameters' => [
-                'length_create' => $values['length'],
-                'height_create' => $values['height'],
-                'power_create'  => $values['power'],
-            ],
-        ];
-
-        $id = 69;
-        $node = new \GraphAware\Neo4j\Client\Formatter\Type\Node($id, $label, $values);
+        $node = M::mock(\GraphAware\Neo4j\Client\Formatter\Type\Node::class);
         $result = M::mock(\GraphAware\Common\Result\Result::class);
+        $this->neoClient->shouldReceive('run')->times(2)->andReturn($result);
         $result->shouldReceive('getRecord')->once()->andReturn($node);
-        $this->neoClient->shouldReceive('run')
-                        ->once()
-                        //->with($query['statement'], $query['parameters'])
-                        ->andReturn($result);
-        //$this->connection->shouldReceive('insert')
-        //                 ->once()
-        //                 ->andReturn($result);
-        //$result->shouldReceive('getRecord')->andReturn($node);
-        $this->assertEquals($id, $this->builder->insertGetId($values));
+        $node->shouldReceive('value')->once()->andReturn(69);
 
-        //$node = M::mock(\GraphAware\Common\Type\Node::class);
-        //
-        //$this->neoClient->shouldReceive('makeNode')->once()->andReturn($node);
-        //$this->neoClient->shouldReceive('makeLabel')->once()->andReturn($label);
-        //
-        //foreach ($values as $key => $value) {
-        //    $node->shouldReceive('setProperty')->once()->with($key, $value);
-        //}
-
-        //// node should save
-        //$node->shouldReceive('save')->once();
-        //// get the node id
-        //$node->shouldReceive('getId')->once()->andReturn(9);
-        //// add the labels
-        //$node->shouldReceive('addLabels')->once()->with(M::type('array'));
-        //
-        //$this->builder->insertGetId($values);
+        $this->assertEquals(69, $this->builder->insertGetId($values));
     }
 
     public function testTransformingQueryToCypher()
@@ -109,13 +78,13 @@ class QueryBuilderTest extends TestCase
         $this->assertTrue($this->builder->toCypher());
     }
 
-    public function testMakingLabel()
-    {
-        $label = ['MaLabel'];
-
-        $this->neoClient->shouldReceive('makeLabel')->with($label)->andReturn($label);
-        $this->assertEquals($label, $this->builder->makeLabel($label));
-    }
+    //public function testMakingLabel()
+    //{
+    //    $label = ['MaLabel'];
+    //
+    //    $this->neoClient->shouldReceive('makeLabel')->with($label)->andReturn($label);
+    //    $this->assertEquals($label, $this->builder->makeLabel($label));
+    //}
 
     /**
      * @depends testTransformingQueryToCypher
@@ -124,8 +93,10 @@ class QueryBuilderTest extends TestCase
     {
         $cypher = 'Some cypher here';
         $this->grammar->shouldReceive('compileSelect')->once()->andReturn($cypher);
-        $this->connection->shouldReceive('select')->once()
-                         ->with($cypher, [])->andReturn('result');
+        $this->connection->shouldReceive('select')
+                         ->once()
+                         ->with($cypher, [])
+                         ->andReturn('result');
 
         $result = $this->builder->getFresh();
 
@@ -150,7 +121,6 @@ class QueryBuilderTest extends TestCase
 
     /**
      * @expectedException InvalidArgumentException
-     * @expectedExceptionMessage Value must be provided.
      */
     public function testFailingWhereWithNullValue()
     {
@@ -170,10 +140,10 @@ class QueryBuilderTest extends TestCase
                 'boolean'  => 'and',
                 'binding'  => 'id(n)'
             ]
-        ], $this->builder->wheres, 'make sure the statement was atted to $wheres');
+        ], $this->builder->wheres, 'make sure the statement was added to $wheres');
         // When the '$from' attribute is not set on the query builder, the grammar
         // will use 'n' as the default node identifier.
-        $this->assertEquals(['idn' => 19], $this->builder->getBindings());
+        $this->assertEquals([19], $this->builder->getBindings());
     }
 
     public function testBasicWhereBindingsWithFromField()

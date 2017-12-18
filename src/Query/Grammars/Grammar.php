@@ -1,16 +1,18 @@
-<?php namespace Vinelab\NeoEloquent\Query\Grammars;
+<?php
 
-use DateTime;
+namespace Vinelab\NeoEloquent\Query\Grammars;
+
 use Carbon\Carbon;
-use Illuminate\Database\Query\Grammars\Grammar as IlluminateGrammar;
+use DateTime;
+use Illuminate\Database\Query\Grammars\Grammar as BaseGrammar;
 
-class Grammar extends IlluminateGrammar
+class Grammar extends BaseGrammar
 {
 
     /**
      * The Query builder instance.
      *
-     * @var Vinelab\NeoEloquent\Query\Builder
+     * @var \Vinelab\NeoEloquent\Query\Builder
      */
     protected $query;
 
@@ -233,7 +235,7 @@ class Grammar extends IlluminateGrammar
     /**
      * Prepare properties and values to be injected in a query.
      *
-     * @param  array $values
+     * @param  array $entities
      * @return string
      */
     protected function prepareEntities(array $entities)

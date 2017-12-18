@@ -3,17 +3,14 @@
 namespace Vinelab\NeoEloquent;
 
 use Closure;
-use DateTime;
+use DateTimeInterface;
 use Exception;
 use GraphAware\Common\Result\Result;
 use GraphAware\Neo4j\Client\Client;
 use GraphAware\Neo4j\Client\ClientBuilder;
 use Illuminate\Database\Connection as BaseConnection;
-use Illuminate\Database\Schema\Grammars\Grammar as BaseSchemaGrammar;
-use Illuminate\Support\Arr;
 use Vinelab\NeoEloquent\Query\Builder as QueryBuilder;
 use Vinelab\NeoEloquent\Query\Grammars\CypherGrammar as QueryGrammar;
-use Vinelab\NeoEloquent\Schema\Grammars\CypherGrammar as SchemaGrammar;
 
 class Connection extends BaseConnection
 {
@@ -74,8 +71,7 @@ class Connection extends BaseConnection
         // which are both very important parts of the database abstractions
         // so we initialize these to their default values while starting.
         $this->useDefaultQueryGrammar();
-
-        $this->useDefaultPostProcessor();
+        //$this->useDefaultPostProcessor();
     }
 
     /**
@@ -174,17 +170,6 @@ class Connection extends BaseConnection
     }
 
     /**
-     * Get an option from the configuration options.
-     *
-     * @param  string|null $option
-     * @return mixed
-     */
-    public function getConfig($option = null)
-    {
-        return Arr::get($this->config, $option);
-    }
-
-    /**
      * Get the Neo4j driver name.
      *
      * @return string
@@ -219,7 +204,21 @@ class Connection extends BaseConnection
                         ->run($query['statement'], $query['parameters']);
         });
     }
-
+    //
+    ///**
+    // * Run an insert statement against the database.
+    // *
+    // * @param string $query
+    // * @param array $bindings
+    // *
+    // * @return mixed
+    // * @throws \Vinelab\NeoEloquent\QueryException
+    // */
+    //public function insert($query, $bindings = array())
+    //{
+    //    return $this->statement($query, $bindings, true);
+    //}
+    //
     /**
      * Run a Cypher statement and get the number of nodes affected.
      *
@@ -230,19 +229,11 @@ class Connection extends BaseConnection
      */
     public function affectingStatement($query, $bindings = [])
     {
-        return $this->run($query, $bindings, function (self $me, $query, array $bindings) {
-            if ($me->pretending()) {
-                return 0;
-            }
+        $result = $this->statement($query, $bindings, true);
 
-            // For update or delete statements, we want to get the number of rows affected
-            // by the statement and return that back to the developer. We'll first need
-            // to execute the statement and then we'll use CypherQuery to fetch the affected.
-            $query = $me->getCypherQuery($query, $bindings);
+        $this->recordsHaveBeenModified($result->summarize()->updateStatistics()->containsUpdates());
 
-            return $this->getClient()
-                        ->run($query['statement'], $query['parameters']);
-        });
+        return $result->getRecord()->values()[0];
     }
 
     /**
@@ -251,7 +242,7 @@ class Connection extends BaseConnection
      * @param  string $query
      * @param  array $bindings
      * @param bool $rawResults
-     * @return bool|\GraphAware\Common\Result\Result When $result is set to true.
+     * @return bool|\GraphAware\Common\Result\Result When $rawResult is set to true.
      * @throws \Vinelab\NeoEloquent\QueryException
      */
     public function statement($query, $bindings = [], $rawResults = false)
@@ -289,31 +280,29 @@ class Connection extends BaseConnection
      * @param  array $bindings
      * @return array
      */
-    public function prepareBindings(array $bindings = [])
+    public function prepareBindings(array $bindings)
     {
-        return collect($bindings)->mapWithKeys(function ($binding, $key) {
-            return is_array($binding) ? $binding : [$key => $binding];
-        })->map(function ($value) {
-            return $value instanceof DateTime ? $value->format($this->getQueryGrammar()->getDateFormat()) : $value;
-        })->mapWithKeys(function ($value, $key) {
-            $property = is_numeric($key) || $key == 'id' ? $this->getQueryGrammar()->getIdReplacement($key) : $key;
+        $grammar = $this->getQueryGrammar();
 
-            return [$property => $value];
-        })->toArray();
-    }
+        $prepared = [];
 
-    /**
-     * Get the query grammar used by the connection.
-     *
-     * @return \Vinelab\NeoEloquent\Query\Grammars\CypherGrammar
-     */
-    public function getQueryGrammar()
-    {
-        if (! $this->queryGrammar) {
-            $this->useDefaultQueryGrammar();
+        foreach ($bindings as $key => $value) {
+            // We need to transform all instances of DateTimeInterface into the actual
+            // date string. Each query grammar maintains its own date string format
+            // so we'll just ask the grammar for the format to get from the date.
+
+            $property = is_numeric($key) || $key == 'id' ? $grammar->getIdReplacement($key) : $key;
+
+            if ($value instanceof DateTimeInterface) {
+                $prepared[$property] = $value->format($grammar->getDateFormat());
+            } else if (is_bool($value)) {
+                $prepared[$property] = (int) $value;
+            } else {
+                $prepared[$property] = $value;
+            }
         }
 
-        return $this->queryGrammar;
+        return $prepared;
     }
 
     /**
@@ -460,51 +449,15 @@ class Connection extends BaseConnection
 
         return $result;
     }
-
-    /**
-     * Set the schema grammar used by the connection.
-     *
-     * @param  \Illuminate\Database\Schema\Grammars\Grammar
-     * @return void
-     */
-    public function setSchemaGrammar(BaseSchemaGrammar $grammar)
-    {
-        $this->schemaGrammar = $grammar;
-    }
-
-    /**
-     * Get the schema grammar used by the connection.
-     *
-     * @return \Illuminate\Database\Schema\Grammars\Grammar
-     */
-    public function getSchemaGrammar()
-    {
-        return $this->schemaGrammar;
-    }
-
-    /**
-     * Get the default schema grammar instance.
-     *
-     * @return \Illuminate\Database\Schema\Grammars\Grammar
-     */
-    protected function getDefaultSchemaGrammar()
-    {
-        return new SchemaGrammar();
-    }
-
-    /**
-     * Get a schema builder instance for the connection.
-     *
-     * @return \Vinelab\NeoEloquent\Schema\Builder
-     */
-    public function getSchemaBuilder()
-    {
-        if (is_null($this->schemaGrammar)) {
-            $this->useDefaultSchemaGrammar();
-        }
-
-        return new Schema\Builder($this);
-    }
+    ///**
+    // * Get the default schema grammar instance.
+    // *
+    // * @return \Illuminate\Database\Schema\Grammars\Grammar
+    // */
+    //protected function getDefaultSchemaGrammar()
+    //{
+    //    return new SchemaGrammar();
+    //}
 
     /**
      * Get the last Id created by Neo4J
@@ -515,9 +468,8 @@ class Connection extends BaseConnection
     {
         $query = "MATCH (n) RETURN MAX(id(n)) AS lastIdCreated";
 
-        $statement = $this->getCypherQuery($query, []);
-        $result = $statement->getResultSet();
+        $result = $this->statement($query, [], true)->getRecord();
 
-        return $result[0][0];
+        return $result->value('lastIdCreated');
     }
 }
