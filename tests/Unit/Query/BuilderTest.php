@@ -143,7 +143,7 @@ class QueryBuilderTest extends TestCase
         ], $this->builder->wheres, 'make sure the statement was added to $wheres');
         // When the '$from' attribute is not set on the query builder, the grammar
         // will use 'n' as the default node identifier.
-        $this->assertEquals([19], $this->builder->getBindings());
+        $this->assertEquals(['idn' => 19], $this->builder->getBindings());
     }
 
     public function testBasicWhereBindingsWithFromField()
@@ -160,7 +160,7 @@ class QueryBuilderTest extends TestCase
                 'boolean'  => 'and',
                 'binding'  => 'id(user)'
             ]
-        ], $this->builder->wheres, 'make sure the statement was atted to $wheres');
+        ], $this->builder->wheres, 'make sure the statement was added to $wheres');
         // When no query builder is passed to the grammar then it will return 'n'
         // as node identifier by default.
         $this->assertEquals(['iduser' => 19], $this->builder->getBindings());

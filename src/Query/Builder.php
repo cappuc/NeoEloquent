@@ -2,75 +2,65 @@
 
 namespace Vinelab\NeoEloquent\Query;
 
-use Carbon\Carbon;
 use Closure;
-use DateTime;
-use GraphAware\Common\Result\Result;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Query\Builder as BaseQueryBuilder;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\Processors\Processor as BaseProcessor;
+use Illuminate\Support\Arr;
 use Vinelab\NeoEloquent\Connection;
 use Vinelab\NeoEloquent\Query\Grammars\Grammar;
 
 class Builder extends BaseQueryBuilder
 {
-//    /**
-//     * The database connection instance
-//     *
-//     * @var \Vinelab\NeoEloquent\Connection
-//     */
-//    public $connection;
-//
     /**
      * The database active client handler
      *
      * @var \GraphAware\Neo4j\Client\Client
      */
     protected $client;
-//
-//    /**
-//     * The matches constraints for the query.
-//     *
-//     * @var array
-//     */
-//    public $matches = [];
-//
-//    /**
-//     * The WITH parts of the query.
-//     *
-//     * @var array
-//     */
-//    public $with = [];
-//
-//    /**
-//     * The current query value bindings.
-//     *
-//     * @var array
-//     */
-//    public $bindings = [
-//        'matches' => [],
-//        'select'  => [],
-//        'join'    => [],
-//        'where'   => [],
-//        'having'  => [],
-//        'order'   => []
-//    ];
-//
-//    /**
-//     * All of the available clause operators.
-//     *
-//     * @var array
-//     */
-//    public $operators = [
-//        '+', '-', '*', '/', '%', '^',    // Mathematical
-//        '=', '<>', '<', '>', '<=', '>=', // Comparison
-//        'is null', 'is not null',
-//        'and', 'or', 'xor', 'not',       // Boolean
-//        'in', '[x]', '[x .. y]',         // Collection
-//        '=~'                             // Regular Expression
-//    ];
-//
+
+    /**
+     * The matches constraints for the query.
+     *
+     * @var array
+     */
+    public $matches = [];
+
+    /**
+     * The WITH parts of the query.
+     *
+     * @var array
+     */
+    public $with = [];
+
+    /**
+     * The current query value bindings.
+     *
+     * @var array
+     */
+    public $bindings = [
+        'matches' => [],
+        'select'  => [],
+        'join'    => [],
+        'where'   => [],
+        'having'  => [],
+        'order'   => []
+    ];
+
+    /**
+     * All of the available clause operators.
+     *
+     * @var array
+     */
+    public $operators = [
+        '+', '-', '*', '/', '%', '^',    // Mathematical
+        '=', '<>', '<', '>', '<=', '>=', // Comparison
+        'is null', 'is not null',
+        'and', 'or', 'xor', 'not',       // Boolean
+        'in', '[x]', '[x .. y]',         // Collection
+        '=~'                             // Regular Expression
+    ];
+
     /**
      * Create a new query builder instance.
      *
@@ -170,32 +160,17 @@ class Builder extends BaseQueryBuilder
         return array_merge($this->getBindings(), $bindings);
     }
 
-//    /**
-//     * Get the current query value bindings in a flattened array
-//     * of $key => $value.
-//     *
-//     * @return array
-//     */
-//    public function getBindings()
-//    {
-//        $bindings = [];
-//
-//        // We will run through all the bindings and pluck out
-//        // the component (select, where, etc.)
-//        foreach ($this->bindings as $component => $binding) {
-//            if (! empty($binding)) {
-//                // For every binding there could be multiple
-//                // values set so we need to add all of them as
-//                // flat $key => $value item in our $bindings.
-//                foreach ($binding as $key => $value) {
-//                    $bindings[$key] = $value;
-//                }
-//            }
-//        }
-//
-//        return $bindings;
-//    }
-//
+    /**
+     * Get the current query value bindings in a flattened array
+     * of $key => $value.
+     *
+     * @return array
+     */
+    public function getBindings()
+    {
+        return Arr::collapse($this->bindings);
+    }
+
 //    /**
 //     * Get the count of the total records for the paginator.
 //     *
@@ -255,11 +230,6 @@ class Builder extends BaseQueryBuilder
         // received when the method was called and pass it into the nested where.
         if (is_array($column)) {
             return $this->addArrayOfWheres($column, $boolean);
-            //return $this->whereNested(function (BaseQueryBuilder $query) use ($column) {
-            //    foreach ($column as $key => $value) {
-            //        $query->where($key, '=', $value);
-            //    }
-            //}, $boolean);
         }
 
         // Here we will make some assumptions about the operator. If only 2 values are
@@ -268,12 +238,6 @@ class Builder extends BaseQueryBuilder
         list($value, $operator) = $this->prepareValueAndOperator(
             $value, $operator, func_num_args() == 2
         );
-        //if (func_num_args() == 2) {
-        //    list($value, $operator) = [$operator, '='];
-        //} else if ($this->invalidOperatorAndValue($operator, $value)) {
-        //    throw new \InvalidArgumentException("Value must be provided.");
-        //}
-
 
         // If the columns is actually a Closure instance, we will assume the developer
         // wants to begin a nested where statement which is wrapped in parenthesis.
@@ -288,9 +252,6 @@ class Builder extends BaseQueryBuilder
         if ($this->invalidOperator($operator)) {
             list($value, $operator) = [$operator, '='];
         }
-        //if (! in_array(mb_strtolower($operator), $this->operators, true)) {
-        //    list($value, $operator) = [$operator, '='];
-        //}
 
         // If the value is a Closure, it means the developer is performing an entire
         // sub-select within the query and we will need to compile the sub-select
@@ -310,8 +271,6 @@ class Builder extends BaseQueryBuilder
         // in our array and add the query binding to our array of bindings that
         // will be bound to each SQL statements when it is finally executed.
         $type = 'Basic';
-
-        //$property = $column;
 
         // When the column is an id we need to treat it as a graph db id and transform it
         // into the form of id(n) and the typecast the value into int.
@@ -370,6 +329,8 @@ class Builder extends BaseQueryBuilder
                 return $where['column'] == $column;
             }));
         }
+
+        return 0;
     }
 
 //    /**
@@ -432,30 +393,30 @@ class Builder extends BaseQueryBuilder
 //
 //        return $this;
 //    }
-//
-//    /**
-//     * Add a "where null" clause to the query.
-//     *
-//     * @param  string $column
-//     * @param  string $boolean
-//     * @param  bool $not
-//     * @return \Illuminate\Database\Query\Builder|static
-//     */
-//    public function whereNull($column, $boolean = 'and', $not = false)
-//    {
-//        $type = $not ? 'NotNull' : 'Null';
-//
-//        if ($column == 'id') {
-//            $column = 'id(' . $this->modelAsNode() . ')';
-//        }
-//
-//        $binding = $this->prepareBindingColumn($column);
-//
-//        $this->wheres[] = compact('type', 'column', 'boolean', 'binding');
-//
-//        return $this;
-//    }
-//
+
+    /**
+     * Add a "where null" clause to the query.
+     *
+     * @param  string $column
+     * @param  string $boolean
+     * @param  bool $not
+     * @return \Illuminate\Database\Query\Builder|static
+     */
+    public function whereNull($column, $boolean = 'and', $not = false)
+    {
+        $type = $not ? 'NotNull' : 'Null';
+
+        if ($column == 'id') {
+            $column = 'id(' . $this->modelAsNode() . ')';
+        }
+
+        $binding = $this->prepareBindingColumn($column);
+
+        $this->wheres[] = compact('type', 'column', 'boolean', 'binding');
+
+        return $this;
+    }
+
 //    /**
 //     * Add a WHERE statement with carried identifier to the query.
 //     *
@@ -554,6 +515,7 @@ class Builder extends BaseQueryBuilder
      *
      * @param  array $columns
      * @return array|static[]
+     * @throws \Vinelab\NeoEloquent\QueryException
      */
     public function getFresh($columns = ['*'])
     {
@@ -764,39 +726,39 @@ class Builder extends BaseQueryBuilder
 //            return $results->current()[0];
 //        }
 //    }
-//
-//    /**
-//     * Add a binding to the query.
-//     *
-//     * @param  mixed $value
-//     * @param  string $type
-//     * @return \Illuminate\Database\Query\Builder
-//     */
-//    public function addBinding($value, $type = 'where')
-//    {
-//        if (is_array($value)) {
-//            $key = array_keys($value)[0];
-//
-//            if (strpos($key, '.') !== false) {
-//                $binding = $value[$key];
-//                unset($value[$key]);
-//                $key = explode('.', $key)[1];
-//                $value[$key] = $binding;
-//            }
-//        }
-//
-//        if (! array_key_exists($type, $this->bindings)) {
-//            throw new \InvalidArgumentException("Invalid binding type: {$type}.");
-//        }
-//
-//        if (is_array($value)) {
-//            $this->bindings[$type] = array_merge($this->bindings[$type], $value);
-//        } else {
-//            $this->bindings[$type][] = $value;
-//        }
-//
-//        return $this;
-//    }
+
+    /**
+     * Add a binding to the query.
+     *
+     * @param  mixed $value
+     * @param  string $type
+     * @return \Illuminate\Database\Query\Builder
+     */
+    public function addBinding($value, $type = 'where')
+    {
+        if (is_array($value)) {
+            $key = array_keys($value)[0];
+
+            if (strpos($key, '.') !== false) {
+                $binding = $value[$key];
+                unset($value[$key]);
+                $key = explode('.', $key)[1];
+                $value[$key] = $binding;
+            }
+        }
+
+        if (! array_key_exists($type, $this->bindings)) {
+            throw new \InvalidArgumentException("Invalid binding type: {$type}.");
+        }
+
+        if (is_array($value)) {
+            $this->bindings[$type] = array_merge($this->bindings[$type], $value);
+        } else {
+            $this->bindings[$type][] = $value;
+        }
+
+        return $this;
+    }
 //
 //    ///**
 //    // * Convert a string into a Neo4j Label.

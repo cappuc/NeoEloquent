@@ -3,7 +3,6 @@
 namespace Vinelab\NeoEloquent\Query\Grammars;
 
 use Illuminate\Database\Query\Builder;
-use Vinelab\NeoEloquent\Exceptions\InvalidCypherGrammarComponentException;
 
 class CypherGrammar extends Grammar
 {
@@ -62,22 +61,22 @@ class CypherGrammar extends Grammar
     //
     //    return implode(', ', $columns);
     //}
-    //
-    ///**
-    // * Get the Cypher representation of the query.
-    // *
-    // * @param \Illuminate\Database\Query\Builder $query
-    // * @return string
-    // */
-    //public function compileSelect(Builder $query)
-    //{
-    //    if (is_null($query->columns)) {
-    //        $query->columns = ['*'];
-    //    }
-    //
-    //    return trim($this->concatenate($this->compileComponents($query)));
-    //}
-    //
+
+    /**
+     * Get the Cypher representation of the query.
+     *
+     * @param \Illuminate\Database\Query\Builder $query
+     * @return string
+     */
+    public function compileSelect(Builder $query)
+    {
+        if (is_null($query->columns)) {
+            $query->columns = ['*'];
+        }
+
+        return trim($this->concatenate($this->compileComponents($query)));
+    }
+
     ///**
     // * Compile the components necessary for a select clause.
     // *
@@ -148,30 +147,30 @@ class CypherGrammar extends Grammar
     //
     //    return $cypher;
     //}
-    //
-    ///**
-    // * Compile the MATCH for a query with relationships.
-    // *
-    // * @param  \Illuminate\Database\Query\Builder $query
-    // * @param  array $matches
-    // * @return string
-    // */
-    //public function compileMatches(Builder $query, $matches)
-    //{
-    //    if (! is_array($matches) || empty($matches)) {
-    //        return '';
-    //    }
-    //
-    //    $prepared = [];
-    //
-    //    foreach ($matches as $match) {
-    //        $method = 'prepareMatch' . ucfirst($match['type']);
-    //        $prepared[] = $this->$method($match);
-    //    }
-    //
-    //    return "MATCH " . implode(', ', $prepared);
-    //}
-    //
+
+    /**
+     * Compile the MATCH for a query with relationships.
+     *
+     * @param  \Illuminate\Database\Query\Builder $query
+     * @param  array $matches
+     * @return string
+     */
+    public function compileMatches(Builder $query, $matches)
+    {
+        if (! is_array($matches) || empty($matches)) {
+            return '';
+        }
+
+        $prepared = [];
+
+        foreach ($matches as $match) {
+            $method = 'prepareMatch' . ucfirst($match['type']);
+            $prepared[] = $this->$method($match);
+        }
+
+        return "MATCH " . implode(', ', $prepared);
+    }
+
     ///**
     // * Prepare a query for MATCH using
     // * collected $matches of type Relation
@@ -270,39 +269,39 @@ class CypherGrammar extends Grammar
     //    return ($bare) ? sprintf($relation, $parentNode, $relationLabel, $relatedNode)
     //        : sprintf($relation, $parentNode, $relationLabel, '(' . $relatedNode . $relatedLabels . ')');
     //}
-    //
-    ///**
-    // * Compile the "from" portion of the query
-    // * which in cypher represents the nodes we're MATCHing
-    // *
-    // * @param  \Vinelab\NeoEloquent\Query\Builder $query
-    // * @param  string $labels
-    // * @return string
-    // */
-    //public function compileFrom(Builder $query, $labels)
-    //{
-    //    // Only compile when no relational matches are specified,
-    //    // mostly used for simple queries.
-    //    if (! empty($query->matches)) {
-    //        return '';
-    //    }
-    //
-    //    // first we will check whether we need
-    //    // to reformat the labels from an array
-    //    if (is_array($labels)) {
-    //        $labels = $this->prepareLabels($labels);
-    //    }
-    //
-    //    // every label must begin with a ':' so we need to check
-    //    // and reformat if need be.
-    //    $labels = ':' . preg_replace('/^:/', '', $labels);
-    //
-    //    // now we add the default placeholder for this node
-    //    $labels = $query->modelAsNode() . $labels;
-    //
-    //    return sprintf("MATCH (%s)", $labels);
-    //}
-    //
+
+    /**
+     * Compile the "from" portion of the query
+     * which in cypher represents the nodes we're MATCHing
+     *
+     * @param \Illuminate\Database\Query\Builder $query
+     * @param  string $labels
+     * @return string
+     */
+    public function compileFrom(Builder $query, $labels)
+    {
+        // Only compile when no relational matches are specified,
+        // mostly used for simple queries.
+        if (! empty($query->matches)) {
+            return '';
+        }
+
+        // first we will check whether we need
+        // to reformat the labels from an array
+        if (is_array($labels)) {
+            $labels = $this->prepareLabels($labels);
+        }
+
+        // every label must begin with a ':' so we need to check
+        // and reformat if need be.
+        $labels = ':' . preg_replace('/^:/', '', $labels);
+
+        // now we add the default placeholder for this node
+        $labels = $query->modelAsNode() . $labels;
+
+        return sprintf("MATCH (%s)", $labels);
+    }
+
     ///**
     // * Compile a "where not in" clause.
     // *
@@ -340,9 +339,10 @@ class CypherGrammar extends Grammar
     //    // for actually creating the where clauses Cypher. This helps keep the code nice
     //    // and maintainable since each clause has a very small method that it uses.
     //    foreach ($query->wheres as $where) {
-    //        $method = "WHERE{$where['type']}";
+    //        $method = "where{$where['type']}";
     //
     //        $cypher[] = $where['boolean'] . ' ' . $this->$method($query, $where);
+    //        var_dump($cypher);
     //    }
     //
     //    // If we actually have some where clauses, we will strip off the first boolean
@@ -356,21 +356,33 @@ class CypherGrammar extends Grammar
     //
     //    return '';
     //}
-    //
-    ///**
-    // * Compile a basic where clause.
-    // *
-    // * @param  \Illuminate\Database\Query\Builder $query
-    // * @param  array $where
-    // * @return string
-    // */
-    //protected function whereBasic(Builder $query, $where)
-    //{
-    //    $value = $this->parameter($where);
-    //
-    //    return $this->wrap($where['column']) . ' ' . $where['operator'] . ' ' . $value;
-    //}
-    //
+
+    /**
+     * Format the where clause statements into one string.
+     *
+     * @param  \Illuminate\Database\Query\Builder $query
+     * @param  array $cypher
+     * @return string
+     */
+    protected function concatenateWhereClauses($query, $cypher)
+    {
+        return 'WHERE ' . $this->removeLeadingBoolean(implode(' ', $cypher));
+    }
+
+    /**
+     * Compile a basic where clause.
+     *
+     * @param  \Illuminate\Database\Query\Builder $query
+     * @param  array $where
+     * @return string
+     */
+    protected function whereBasic(Builder $query, $where)
+    {
+        $value = $this->parameter($where);
+
+        return $this->wrap($where['column']) . ' ' . $where['operator'] . ' ' . $value;
+    }
+
     ///**
     // * Compiled a WHERE clause with carried identifiers.
     // *
@@ -407,36 +419,36 @@ class CypherGrammar extends Grammar
     //    return 'SKIP ' . (int) $offset;
     //}
     //
-    ///**
-    // * Compile the "RETURN *" portion of the query.
-    // *
-    // * @param  \Vinelab\NeoEloquent\Query\Builder $query
-    // * @param  array $columns
-    // * @return string
-    // */
-    //protected function compileColumns(Builder $query, $properties)
-    //{
-    //    // When we have an aggregate we will have to return it instead of the plain columns
-    //    // since aggregates for Cypher are not calculated at the beginning of the query like SQL
-    //    // instead we'll have to return in a form such as: RETURN max(user.logins).
-    //    if (! is_null($query->aggregate)) {
-    //        return $this->compileAggregate($query, $query->aggregate);
-    //    }
-    //
-    //    // In the case where the query has relationships
-    //    // we need to return the requested properties as is
-    //    // since they are considered node placeholders.
-    //    if (! empty($query->matches)) {
-    //        $properties = implode(', ', array_values($properties));
-    //    } else {
-    //        $properties = $this->columnize($properties);
-    //    }
-    //
-    //    $distinct = ($query->distinct) ? 'DISTINCT ' : '';
-    //
-    //    return 'RETURN ' . $distinct . $properties;
-    //}
-    //
+    /**
+     * Compile the "RETURN *" portion of the query.
+     *
+     * @param \Illuminate\Database\Query\Builder $query
+     * @param $properties
+     * @return string
+     */
+    protected function compileColumns(Builder $query, $properties)
+    {
+        // When we have an aggregate we will have to return it instead of the plain columns
+        // since aggregates for Cypher are not calculated at the beginning of the query like SQL
+        // instead we'll have to return in a form such as: RETURN max(user.logins).
+        if (! is_null($query->aggregate)) {
+            return $this->compileAggregate($query, $query->aggregate);
+        }
+
+        // In the case where the query has relationships
+        // we need to return the requested properties as is
+        // since they are considered node placeholders.
+        if (! empty($query->matches)) {
+            $properties = implode(', ', array_values($properties));
+        } else {
+            $properties = $this->columnize($properties);
+        }
+
+        $distinct = ($query->distinct) ? 'DISTINCT ' : '';
+
+        return 'RETURN ' . $distinct . $properties;
+    }
+
     ///**
     // * Compile the "order by" portions of the query.
     // *
@@ -520,19 +532,19 @@ class CypherGrammar extends Grammar
     //
     //    return "$match $where OPTIONAL $match-[r]-()  $where DELETE  " . $query->modelAsNode() . ",r";
     //}
-    //
-    //public function compileWith(Builder $query, $with)
-    //{
-    //    $parts = [];
-    //
-    //    if (! empty($with)) {
-    //        foreach ($with as $identifier => $part) {
-    //            $parts[] = (! is_numeric($identifier)) ? "$identifier AS $part" : $part;
-    //        }
-    //
-    //        return 'WITH ' . implode(', ', $parts);
-    //    }
-    //}
+
+    public function compileWith(Builder $query, $with)
+    {
+        $parts = [];
+
+        if (! empty($with)) {
+            foreach ($with as $identifier => $part) {
+                $parts[] = (! is_numeric($identifier)) ? "$identifier AS $part" : $part;
+            }
+
+            return 'WITH ' . implode(', ', $parts);
+        }
+    }
 
     /**
      * Compile an insert statement into Cypher.

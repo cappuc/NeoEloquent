@@ -463,6 +463,7 @@ class Connection extends BaseConnection
      * Get the last Id created by Neo4J
      *
      * @return int
+     * @throws \Vinelab\NeoEloquent\QueryException
      */
     public function lastInsertedId()
     {
